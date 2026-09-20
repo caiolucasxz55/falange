@@ -11,6 +11,7 @@ import re
 
 ESTIMATIVAS = ("PP", "P", "M", "G")
 BLOCOS = ("frontend", "backend", "infra", "seguranca")
+STATUS = ("aberta", "em_andamento", "concluida")
 
 _ORDEM = {e: i for i, e in enumerate(ESTIMATIVAS)}
 

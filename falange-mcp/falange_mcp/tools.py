@@ -13,7 +13,13 @@ from pathlib import Path
 import httpx
 
 from config import settings
-from falange_mcp.template import BLOCOS, ESTIMATIVAS, TEMPLATE_CONTRATO, validar_pre_task
+from falange_mcp.template import (
+    BLOCOS,
+    ESTIMATIVAS,
+    STATUS,
+    TEMPLATE_CONTRATO,
+    validar_pre_task,
+)
 
 BACKEND = settings.backend_url
 
@@ -22,6 +28,44 @@ EXTENSOES_OK = {
     ".json", ".yaml", ".yml", ".toml", ".sql", ".sh",
 }
 MAX_CHARS = 20_000
+
+
+def _erro_422(corpo: dict) -> str:
+    """Traduz o 422 do FastAPI em uma frase acionavel."""
+    partes = []
+    for item in corpo.get("detail", []):
+        campo = ".".join(str(x) for x in item.get("loc", []) if x != "body")
+        partes.append(f"{campo}: {item.get('msg', 'invalido')}")
+    return "; ".join(partes) or "payload invalido"
+
+
+def _pedir(metodo: str, caminho: str, **kw):
+    """Chama o backend e NUNCA levanta: devolve o json ou {'erro': <frase>}.
+
+    Uma excecao vira 'Error executing tool X' do lado do client MCP, o que
+    nao diz nada para a IA. Um dict com 'erro' ela consegue ler e corrigir.
+    """
+    try:
+        r = httpx.request(metodo, f"{BACKEND}{caminho}", timeout=10, **kw)
+    except httpx.HTTPError as e:
+        return {"erro": f"backend inacessivel em {BACKEND}: {e}"}
+
+    if r.status_code == 204:
+        return {"ok": True}
+    if r.status_code == 422:
+        return {"erro": _erro_422(r.json())}
+    if r.status_code >= 400:
+        try:
+            return {"erro": str(r.json().get("detail", r.text))}
+        except Exception:
+            return {"erro": f"HTTP {r.status_code}: {r.text[:200]}"}
+    return r.json()
+
+
+def _checar(valor, validos, campo: str) -> str | None:
+    if valor is not None and valor not in validos:
+        return f"{campo} '{valor}' invalido; use {'/'.join(validos)}"
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -35,8 +79,17 @@ def criar_task(
     descricao: str = "",
     responsavel: str | None = None,
 ) -> dict:
-    r = httpx.post(
-        f"{BACKEND}/tasks",
+    """Cria uma task. estimativa: PP/P/M/G. bloco: frontend/backend/infra/seguranca."""
+    for erro in (
+        _checar(estimativa, ESTIMATIVAS, "estimativa"),
+        _checar(bloco, BLOCOS, "bloco"),
+    ):
+        if erro:
+            return {"erro": erro}
+
+    return _pedir(
+        "POST",
+        "/tasks",
         json={
             "titulo": titulo,
             "descricao": descricao,
@@ -45,40 +98,84 @@ def criar_task(
             "responsavel": responsavel,
         },
     )
-    r.raise_for_status()
-    return r.json()
 
 
 def listar_tasks(
     bloco: str | None = None,
     status: str | None = None,
     responsavel: str | None = None,
-) -> list:
+) -> list | dict:
+    """Lista tasks. Filtros opcionais por bloco, status e responsavel."""
+    for erro in (_checar(bloco, BLOCOS, "bloco"), _checar(status, STATUS, "status")):
+        if erro:
+            return {"erro": erro}
+
     params = {
         k: v
         for k, v in {"bloco": bloco, "status": status, "responsavel": responsavel}.items()
         if v
     }
-    r = httpx.get(f"{BACKEND}/tasks", params=params or None)
-    r.raise_for_status()
-    return r.json()
+    return _pedir("GET", "/tasks", params=params or None)
 
 
 def marcar_bloqueio(task_id: int, bloqueada_por: int | None = None) -> dict:
-    """bloqueada_por = id da task que trava esta. None desbloqueia."""
-    r = httpx.patch(
-        f"{BACKEND}/tasks/{task_id}/bloqueio", json={"bloqueada_por": bloqueada_por}
+    """Trava a task por outra. bloqueada_por = id da bloqueadora; None desbloqueia."""
+    return _pedir(
+        "PATCH", f"/tasks/{task_id}/bloqueio", json={"bloqueada_por": bloqueada_por}
     )
-    if r.status_code == 409:
-        return {"erro": r.json().get("detail")}
-    r.raise_for_status()
-    return r.json()
+
+
+def mudar_status(task_id: int, status: str) -> dict:
+    """Move a task entre aberta / em_andamento / concluida.
+
+    Concluir limpa o bloqueio automaticamente.
+    """
+    erro = _checar(status, STATUS, "status")
+    if erro:
+        return {"erro": erro}
+    return _pedir("PATCH", f"/tasks/{task_id}/status", json={"status": status})
+
+
+def editar_task(
+    task_id: int,
+    titulo: str | None = None,
+    descricao: str | None = None,
+    estimativa: str | None = None,
+    bloco: str | None = None,
+    responsavel: str | None = None,
+) -> dict:
+    """Corrige campos de uma task existente. So os campos enviados mudam."""
+    for erro in (
+        _checar(estimativa, ESTIMATIVAS, "estimativa"),
+        _checar(bloco, BLOCOS, "bloco"),
+    ):
+        if erro:
+            return {"erro": erro}
+
+    campos = {
+        k: v
+        for k, v in {
+            "titulo": titulo,
+            "descricao": descricao,
+            "estimativa": estimativa,
+            "bloco": bloco,
+            "responsavel": responsavel,
+        }.items()
+        if v is not None
+    }
+    if not campos:
+        return {"erro": "informe ao menos um campo para alterar"}
+    return _pedir("PATCH", f"/tasks/{task_id}", json=campos)
+
+
+def apagar_task(task_id: int) -> dict:
+    """Remove a task. Quem dependia dela fica sem bloqueio, nao quebra."""
+    return _pedir("DELETE", f"/tasks/{task_id}")
 
 
 def contar_tasks_por_bloco() -> dict:
-    r = httpx.get(f"{BACKEND}/tasks/contagem-por-bloco")
-    r.raise_for_status()
-    return r.json()
+    """Quantas tasks existem em cada bloco."""
+    return _pedir("GET", "/tasks/contagem-por-bloco")
 
 
 def verificar_sobrecarga(
@@ -91,11 +188,7 @@ def verificar_sobrecarga(
         for k, v in {"bloco": bloco, "responsavel": responsavel, "limite": limite}.items()
         if v is not None
     }
-    r = httpx.get(f"{BACKEND}/carga", params=params)
-    if r.status_code == 400:
-        return {"erro": r.json().get("detail")}
-    r.raise_for_status()
-    return r.json()
+    return _pedir("GET", "/carga", params=params)
 
 
 # --------------------------------------------------------------------------
@@ -144,15 +237,15 @@ def gerar_tasks_a_partir_de_arquivo(caminho: str) -> dict:
     texto = alvo.read_text(encoding="utf-8", errors="replace")
     truncado = len(texto) > MAX_CHARS
 
-    try:
-        existentes = [
-            {"id": t["id"], "titulo": t["titulo"], "bloco": t["bloco"]}
-            for t in listar_tasks()
-        ]
-    except Exception as e:  # backend fora do ar nao impede a leitura
-        existentes = []
-        erro_backend = str(e)
+    # Backend fora do ar nao impede a leitura do arquivo: a IA ainda consegue
+    # redigir, so perde a checagem de duplicata.
+    atuais = listar_tasks()
+    if isinstance(atuais, dict):
+        existentes, erro_backend = [], atuais.get("erro")
     else:
+        existentes = [
+            {"id": t["id"], "titulo": t["titulo"], "bloco": t["bloco"]} for t in atuais
+        ]
         erro_backend = None
 
     return {
@@ -180,10 +273,9 @@ def validar_task(
     """Veredito sobre uma pre-task: aprovada ou precisa_de_ajuste + motivos."""
     existentes = []
     if checar_duplicata:
-        try:
-            existentes = listar_tasks()
-        except Exception:
-            existentes = []
+        atuais = listar_tasks()
+        if not isinstance(atuais, dict):
+            existentes = atuais
 
     return validar_pre_task(
         {

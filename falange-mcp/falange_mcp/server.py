@@ -12,7 +12,10 @@ from falange_mcp import tools
 TOOLS = (
     tools.criar_task,
     tools.listar_tasks,
+    tools.editar_task,
+    tools.apagar_task,
     tools.marcar_bloqueio,
+    tools.mudar_status,
     tools.contar_tasks_por_bloco,
     tools.verificar_sobrecarga,
     tools.gerar_tasks_a_partir_de_arquivo,

@@ -82,6 +82,9 @@ async def definir_status(
     if task is None:
         return None
     task.status = status
+    # Task concluida nao fica pendurada em bloqueio: o fato deixou de valer.
+    if status is Status.concluida:
+        task.bloqueada_por = None
     await session.commit()
     await session.refresh(task)
     return task
@@ -105,3 +108,28 @@ async def contar_abertas(
     if responsavel is not None:
         q = q.where(Task.responsavel == responsavel)
     return int((await session.execute(q)).scalar_one())
+
+
+async def editar(
+    session: AsyncSession, task_id: int, campos: dict
+) -> Optional[Task]:
+    """Altera apenas os campos presentes em `campos`."""
+    task = await session.get(Task, task_id)
+    if task is None:
+        return None
+    for campo, valor in campos.items():
+        setattr(task, campo, valor)
+    await session.commit()
+    await session.refresh(task)
+    return task
+
+
+async def remover(session: AsyncSession, task_id: int) -> bool:
+    """Remove a task. Quem dependia dela fica com bloqueada_por = NULL
+    (ON DELETE SET NULL), entao ninguem sobra apontando para um id morto."""
+    task = await session.get(Task, task_id)
+    if task is None:
+        return False
+    await session.delete(task)
+    await session.commit()
+    return True

@@ -36,6 +36,14 @@ services:
       # 8010 no host: 8000 e 8001 ja estao com outros projetos desta maquina.
       # Dentro da rede do compose o backend continua na 8000.
       - "8010:8000"
+    healthcheck:
+      # A imagem e slim: nao tem curl nem wget, entao usa o proprio Python.
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -52,7 +60,9 @@ services:
     ports:
       - "8765:8765"
     depends_on:
-      - backend
+      # Espera o backend responder de fato, nao so o container existir.
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

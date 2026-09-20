@@ -28,6 +28,16 @@ class TaskNova(BaseModel):
     responsavel: Optional[str] = None
 
 
+class TaskEdicao(BaseModel):
+    """Edicao parcial: so os campos enviados sao alterados."""
+
+    titulo: Optional[str] = None
+    descricao: Optional[str] = None
+    estimativa: Optional[Estimativa] = None
+    bloco: Optional[Bloco] = None
+    responsavel: Optional[str] = None
+
+
 class Bloqueio(BaseModel):
     # None = desbloquear. Um id = travada por aquela task.
     bloqueada_por: Optional[int] = None

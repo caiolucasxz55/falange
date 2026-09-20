@@ -13,7 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend import crud
 from backend.db import get_session
 from backend.models import Bloco, Status
-from backend.schemas import Bloqueio, Carga, MudancaStatus, TaskNova, TaskOut
+from backend.schemas import (
+    Bloqueio,
+    Carga,
+    MudancaStatus,
+    TaskEdicao,
+    TaskNova,
+    TaskOut,
+)
 from config import settings
 
 app = FastAPI(title="Falange V1")
@@ -92,3 +99,22 @@ async def mudar_status(
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
     return task
+
+
+@app.patch("/tasks/{task_id}", response_model=TaskOut)
+async def editar_task(
+    task_id: int, body: TaskEdicao, session: AsyncSession = Depends(get_session)
+):
+    campos = body.model_dump(exclude_unset=True)
+    if not campos:
+        raise HTTPException(400, "nenhum campo para alterar")
+    task = await crud.editar(session, task_id, campos)
+    if task is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+    return task
+
+
+@app.delete("/tasks/{task_id}", status_code=204)
+async def apagar_task(task_id: int, session: AsyncSession = Depends(get_session)):
+    if not await crud.remover(session, task_id):
+        raise HTTPException(404, f"task {task_id} nao encontrada")
