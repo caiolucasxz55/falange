@@ -6,7 +6,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-falange}
       POSTGRES_DB: falange
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Postgres 18+: o mount vai na raiz, nao em /data (a imagem cria o
+      # subdiretorio por major version). Montar em /data faz a imagem abortar.
+      - pgdata:/var/lib/postgresql
     ports:
       # 5433 no host: a 5432 ja e do Postgres 18 nativo desta maquina.
       - "5433:5432"
@@ -31,7 +33,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://falange:${POSTGRES_PASSWORD:-falange}@db:5432/falange
       LIMITE_SOBRECARGA: ${LIMITE_SOBRECARGA:-5}
     ports:
-      - "8000:8000"
+      # 8010 no host: 8000 e 8001 ja estao com outros projetos desta maquina.
+      # Dentro da rede do compose o backend continua na 8000.
+      - "8010:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
