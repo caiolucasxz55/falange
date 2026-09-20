@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: falange
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-falange}
+      POSTGRES_DB: falange
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # 5433 no host: a 5432 ja e do Postgres 18 nativo desta maquina.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U falange -d falange"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://falange:${POSTGRES_PASSWORD:-falange}@db:5432/falange
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://falange:${POSTGRES_PASSWORD:-falange}@db:5432/falange
+      LIMITE_SOBRECARGA: ${LIMITE_SOBRECARGA:-5}
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Transporte SSE: o que voce expoe para o time.
+  # O stdio NAO vira servico: ele e um subprocesso que o client local sobe.
+  mcp-sse:
+    build: .
+    command: python mcp_http_sse_example.py
+    environment:
+      BACKEND_URL: http://backend:8000
+      FALANGE_DOCS_ROOT: /app/exemplos
+      MCP_SSE_HOST: 0.0.0.0
+    ports:
+      - "8765:8765"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
