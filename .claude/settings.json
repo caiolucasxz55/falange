@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__falange__listar_tasks",
+      "mcp__falange__contar_tasks_por_bloco",
+      "mcp__falange__verificar_sobrecarga",
+      "mcp__falange__gerar_tasks_a_partir_de_arquivo",
+      "mcp__falange__validar_task",
+      "mcp__falange__criar_task",
+      "mcp__falange__editar_task",
+      "mcp__falange__marcar_bloqueio",
+      "mcp__falange__mudar_status"
+    ],
+    "ask": [
+      "mcp__falange__apagar_task"
+    ]
+  }
+}

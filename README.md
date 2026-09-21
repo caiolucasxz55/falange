@@ -135,6 +135,28 @@ environment de quem chamou. O `PYTHONPATH` e o que permite o `-m` achar o
 pacote independente do diretorio de onde o client dispara o processo. O `.mcp.json` versionado tem caminhos desta
 maquina - quem clonar precisa ajustar.
 
+## Usar pelo Claude Code
+
+Com a stack no ar, abra o projeto no Claude Code e use:
+
+| Comando | O que faz |
+|---|---|
+| `/falange-gerar <arquivo>` | documentacao/codigo vira tasks: sugere, valida e so cria depois da sua aprovacao |
+| `/falange-nova <descricao>` | uma task a partir de texto livre (entende "depois da #7") |
+| `/falange-status [bloco\|pessoa]` | panorama: blocos, cadeias de bloqueio, sobrecarga (so leitura) |
+
+Pedidos em texto livre tambem funcionam: o `CLAUDE.md` manda sempre usar as
+tools do MCP, nunca banco ou codigo.
+
+**Primeira vez nesta maquina:** rode `claude` nesta pasta (ou abra uma sessao
+nova na extensao), aceite a confianca na pasta e aprove o servidor `falange`.
+Sem isso o Claude Code ignora as permissoes de `.claude/settings.json` e o
+servidor fica "Pending approval". `apagar_task` sempre pede confirmacao.
+
+`/falange-gerar` so le arquivos dentro de `FALANGE_DOCS_ROOT` (no `.mcp.json`,
+a raiz deste repo). Para gerar tasks da documentacao de outro projeto, aponte
+essa variavel para ele.
+
 ## Adicionar uma tool
 
 1. Escrever a funcao em `falange_mcp/tools.py`.
