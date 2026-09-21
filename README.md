@@ -7,7 +7,7 @@ Backend FastAPI sobre Postgres, exposto a uma IA por dois transportes MCP.
     IA (client MCP)
        |  stdio (local)          SSE (time)
        v                          v
-    mcp_stdio_example.py    mcp_http_sse_example.py
+    falange_mcp/stdio.py     falange_mcp/sse.py
        \                        /
         falange_mcp/server.py  <- registra as tools uma vez so
         falange_mcp/tools.py   <- logica, nao sabe o que e transporte
@@ -56,7 +56,19 @@ Precisa de um Postgres proprio e da `DATABASE_URL` no `.env`:
     .venv/Scripts/python -m pip install -r requirements.txt
     .venv/Scripts/alembic upgrade head
     .venv/Scripts/python -m uvicorn backend.main:app --port 8000
-    .venv/Scripts/python mcp_http_sse_example.py
+    .venv/Scripts/python -m falange_mcp.sse
+
+## Configuracao
+
+Cada pacote tem a sua, lida do `.env` ou de variaveis de ambiente:
+
+| Arquivo | Le |
+|---|---|
+| `backend/config.py` | `DATABASE_URL`, `LIMITE_SOBRECARGA` |
+| `falange_mcp/config.py` | `BACKEND_URL`, `FALANGE_DOCS_ROOT`, `MCP_SSE_HOST`, `MCP_SSE_PORT` |
+
+O MCP nao conhece `DATABASE_URL` de proposito: nao tem como falar com o
+banco nem por engano.
 
 ## Tools
 
@@ -97,18 +109,20 @@ stack e abra o projeto; o servidor `falange` aparece com as 10 tools.
     {
       "mcpServers": {
         "falange": {
-          "command": "C:/caminho/para/falange-mcp/.venv/Scripts/python.exe",
-          "args": ["C:/caminho/para/falange-mcp/mcp_stdio_example.py"],
+          "command": "C:/caminho/para/falange/.venv/Scripts/python.exe",
+          "args": ["-m", "falange_mcp.stdio"],
           "env": {
+            "PYTHONPATH": "C:/caminho/para/falange",
             "BACKEND_URL": "http://127.0.0.1:8010",
-            "FALANGE_DOCS_ROOT": "C:/caminho/para/falange-mcp"
+            "FALANGE_DOCS_ROOT": "C:/caminho/para/falange"
           }
         }
       }
     }
 
 Caminho absoluto e `env` explicito sao obrigatorios: o stdio nao herda o
-environment de quem chamou. O `.mcp.json` versionado tem caminhos desta
+environment de quem chamou. O `PYTHONPATH` e o que permite o `-m` achar o
+pacote independente do diretorio de onde o client dispara o processo. O `.mcp.json` versionado tem caminhos desta
 maquina - quem clonar precisa ajustar.
 
 ## Adicionar uma tool

@@ -21,7 +21,7 @@ from backend.schemas import (
     TaskNova,
     TaskOut,
 )
-from config import settings
+from backend.config import settings
 
 app = FastAPI(title="Falange V1")
 

@@ -10,7 +10,7 @@ from alembic import context
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.models import Base  # noqa: E402
-from config import settings  # noqa: E402
+from backend.config import settings  # noqa: E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

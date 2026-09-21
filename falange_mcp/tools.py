@@ -12,7 +12,7 @@ from pathlib import Path
 
 import httpx
 
-from config import settings
+from falange_mcp.config import settings
 from falange_mcp.template import (
     BLOCOS,
     ESTIMATIVAS,

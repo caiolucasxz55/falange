@@ -1,3 +1,7 @@
+# Nome fixo: sem isso o Compose usa o nome da pasta, e renomear/mover o
+# projeto troca o nome dos containers e do volume (o banco "some").
+name: falange
+
 services:
   db:
     image: postgres:18-alpine
@@ -52,7 +56,7 @@ services:
   # O stdio NAO vira servico: ele e um subprocesso que o client local sobe.
   mcp-sse:
     build: .
-    command: python mcp_http_sse_example.py
+    command: python -m falange_mcp.sse
     environment:
       BACKEND_URL: http://backend:8000
       FALANGE_DOCS_ROOT: /app/exemplos

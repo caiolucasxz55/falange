@@ -1,5 +1,5 @@
 """Monta o servidor MCP. Um lugar so registra as tools; o transporte e escolhido
-pelo entrypoint (mcp_stdio_example.py ou mcp_http_sse_example.py).
+pelo entrypoint (falange_mcp/stdio.py ou falange_mcp/sse.py).
 
 Adicionar uma tool nova = colocar a funcao em tools.py e citar na lista abaixo.
 Os dois transportes ganham a tool automaticamente.
