@@ -58,13 +58,23 @@ Precisa de um Postgres proprio e da `DATABASE_URL` no `.env`:
     .venv/Scripts/python -m uvicorn backend.main:app --port 8000
     .venv/Scripts/python -m falange_mcp.sse
 
+## Frontend de teste
+
+Tela minima em Next.js para ver o fluxo MCP -> backend. Detalhes em
+`frontend/README.md`.
+
+    cd frontend && npm install && npm run dev     # http://localhost:3010
+
+O backend libera CORS so para as origens em `CORS_ORIGINS` (padrao
+`http://localhost:3010`).
+
 ## Configuracao
 
 Cada pacote tem a sua, lida do `.env` ou de variaveis de ambiente:
 
 | Arquivo | Le |
 |---|---|
-| `backend/config.py` | `DATABASE_URL`, `LIMITE_SOBRECARGA` |
+| `backend/config.py` | `DATABASE_URL`, `LIMITE_SOBRECARGA`, `CORS_ORIGINS` |
 | `falange_mcp/config.py` | `BACKEND_URL`, `FALANGE_DOCS_ROOT`, `MCP_SSE_HOST`, `MCP_SSE_PORT` |
 
 O MCP nao conhece `DATABASE_URL` de proposito: nao tem como falar com o
@@ -148,5 +158,5 @@ Os dois transportes ganham a tool automaticamente.
 
 ## Fora do escopo do V1
 
-Frontend, gamificacao/war room, autenticacao e multi-usuario. `responsavel`
+Frontend de verdade (o atual e so tela de teste), gamificacao/war room, autenticacao e multi-usuario. `responsavel`
 e texto simples de proposito - vira FK para usuario no V2.

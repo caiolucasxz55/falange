@@ -8,6 +8,7 @@ direto com o banco -- uma fonte de verdade so.
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
@@ -24,6 +25,14 @@ from backend.schemas import (
 from backend.config import settings
 
 app = FastAPI(title="Falange V1")
+
+# Sem isso o navegador bloqueia as chamadas do frontend (outra origem/porta).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")

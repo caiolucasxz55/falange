@@ -11,5 +11,10 @@ class Settings(BaseSettings):
     # Acima de quantas tasks abertas uma pessoa/bloco e considerado sobrecarregado.
     limite_sobrecarga: int = 5
 
+    # Origens que o navegador pode usar para chamar a API (o frontend Next).
+    # 3010 e nao 3000: nesta maquina a 3000 e do resinarts_frontend.
+    # No .env, em JSON: CORS_ORIGINS=["http://localhost:3010"]
+    cors_origins: list[str] = ["http://localhost:3010"]
+
 
 settings = Settings()
