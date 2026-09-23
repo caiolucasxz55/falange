@@ -8,6 +8,7 @@ estimativa com o escopo descrito e duplicata.
 
 import difflib
 import re
+import unicodedata
 
 ESTIMATIVAS = ("PP", "P", "M", "G")
 BLOCOS = ("frontend", "backend", "infra", "seguranca")
@@ -53,6 +54,13 @@ _SINAIS_ESCOPO = [
 ]
 
 
+def _normalizar(texto: str) -> str:
+    """Minusculas e sem acento: os padroes deste modulo sao escritos sem acento,
+    entao "Criterio" e "Criterio de aceite" precisam casar com "Critério"."""
+    decomposto = unicodedata.normalize("NFKD", texto.lower())
+    return "".join(c for c in decomposto if not unicodedata.combining(c))
+
+
 def _faixa_esperada(sinais: int) -> tuple[int, int]:
     if sinais <= 1:
         return _ORDEM["PP"], _ORDEM["P"]
@@ -64,7 +72,7 @@ def _faixa_esperada(sinais: int) -> tuple[int, int]:
 
 
 def contar_sinais_escopo(texto: str) -> int:
-    baixo = texto.lower()
+    baixo = _normalizar(texto)
     sinais = sum(1 for p in _SINAIS_ESCOPO if re.search(p, baixo))
     # Cada item de lista na descricao tambem e um sinal de escopo.
     sinais += min(len(re.findall(r"^\s*[-*]\s+", texto, re.M)), 4)
@@ -78,6 +86,8 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
     descricao = (pre_task.get("descricao") or "").strip()
     estimativa = (pre_task.get("estimativa") or "").strip().upper()
     bloco = (pre_task.get("bloco") or "").strip().lower()
+    titulo_norm = _normalizar(titulo)
+    descricao_norm = _normalizar(descricao)
 
     # --- titulo ---
     if len(titulo) < 6:
@@ -86,7 +96,7 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
         motivos.append(f"titulo com {len(titulo)} chars (maximo 80)")
     if titulo.endswith("."):
         motivos.append("titulo nao deve terminar com ponto")
-    if any(re.match(p, titulo.lower()) for p in _TITULO_GENERICO):
+    if any(re.match(p, titulo_norm) for p in _TITULO_GENERICO):
         motivos.append(f"titulo generico demais: '{titulo}' nao diz o que sera entregue")
 
     # --- descricao ---
@@ -94,15 +104,19 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
         motivos.append(f"descricao com {len(descricao)} chars (minimo 40); esta vaga")
     if len(descricao) > 800:
         motivos.append(f"descricao com {len(descricao)} chars (maximo 800); quebre a task")
-    if "criterio de aceite" not in descricao.lower():
+    if "criterio de aceite" not in descricao_norm:
         motivos.append("falta a linha 'Criterio de aceite: ...' na descricao")
 
     # --- enchimento ---
-    achados = {
-        re.search(p, descricao.lower()).group(0)
-        for p in _ENCHIMENTO
-        if re.search(p, descricao.lower())
-    }
+    achados = set()
+    for padrao in _ENCHIMENTO:
+        achado = re.search(padrao, descricao_norm)
+        if achado:
+            # Mostra o trecho como o usuario escreveu. NFKD preserva o numero de
+            # caracteres para acento latino; se nao preservar, cai no normalizado.
+            inicio, fim = achado.span()
+            alinhado = len(descricao_norm) == len(descricao)
+            achados.add(descricao[inicio:fim] if alinhado else achado.group(0))
     if achados:
         motivos.append(f"enchimento de linguica: {', '.join(sorted(achados))}")
 
@@ -131,8 +145,8 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
 
     # --- duplicata ---
     for existente in tasks_existentes or []:
-        outro = (existente.get("titulo") or "").lower()
-        if outro and difflib.SequenceMatcher(None, titulo.lower(), outro).ratio() > 0.8:
+        outro = _normalizar(existente.get("titulo") or "")
+        if outro and difflib.SequenceMatcher(None, titulo_norm, outro).ratio() > 0.8:
             motivos.append(
                 f"parece duplicata da task #{existente.get('id')} '{existente.get('titulo')}'"
             )

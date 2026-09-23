@@ -128,7 +128,8 @@ def marcar_bloqueio(task_id: int, bloqueada_por: int | None = None) -> dict:
 def mudar_status(task_id: int, status: str) -> dict:
     """Move a task entre aberta / em_andamento / concluida.
 
-    Concluir limpa o bloqueio automaticamente.
+    Concluir limpa o bloqueio da propria task e tambem libera as tasks que
+    estavam bloqueadas por ela.
     """
     erro = _checar(status, STATUS, "status")
     if erro:
@@ -144,7 +145,10 @@ def editar_task(
     bloco: str | None = None,
     responsavel: str | None = None,
 ) -> dict:
-    """Corrige campos de uma task existente. So os campos enviados mudam."""
+    """Corrige campos de uma task existente. So os campos enviados mudam.
+
+    Para remover o responsavel, passe responsavel="" (string vazia).
+    """
     for erro in (
         _checar(estimativa, ESTIMATIVAS, "estimativa"),
         _checar(bloco, BLOCOS, "bloco"),
@@ -159,10 +163,13 @@ def editar_task(
             "descricao": descricao,
             "estimativa": estimativa,
             "bloco": bloco,
-            "responsavel": responsavel,
         }.items()
         if v is not None
     }
+    # Convencao: "" remove o responsavel. Filtrar por None nao daria como
+    # desatribuir, porque None significa "campo nao enviado".
+    if responsavel is not None:
+        campos["responsavel"] = responsavel or None
     if not campos:
         return {"erro": "informe ao menos um campo para alterar"}
     return _pedir("PATCH", f"/tasks/{task_id}", json=campos)
@@ -183,6 +190,17 @@ def verificar_sobrecarga(
     responsavel: str | None = None,
     limite: int | None = None,
 ) -> dict:
+    """Quantas tasks abertas um bloco ou uma pessoa carrega, e se passou do limite.
+
+    Informe bloco OU responsavel. `limite` e opcional: sem ele vale o padrao
+    do servidor (LIMITE_SOBRECARGA).
+    """
+    erro = _checar(bloco, BLOCOS, "bloco")
+    if erro:
+        return {"erro": erro}
+    if bloco is None and responsavel is None:
+        return {"erro": "informe bloco ou responsavel"}
+
     params = {
         k: v
         for k, v in {"bloco": bloco, "responsavel": responsavel, "limite": limite}.items()

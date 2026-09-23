@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models import ABERTAS, Bloco, Status, Task
@@ -83,8 +83,14 @@ async def definir_status(
         return None
     task.status = status
     # Task concluida nao fica pendurada em bloqueio: o fato deixou de valer.
+    # E quem esperava por ela tambem e liberado, no mesmo commit.
     if status is Status.concluida:
         task.bloqueada_por = None
+        await session.execute(
+            update(Task)
+            .where(Task.bloqueada_por == task_id)
+            .values(bloqueada_por=None)
+        )
     await session.commit()
     await session.refresh(task)
     return task

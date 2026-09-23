@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.models import Bloco, Estimativa, Status
 
@@ -21,21 +21,21 @@ class TaskOut(BaseModel):
 
 
 class TaskNova(BaseModel):
-    titulo: str
+    titulo: str = Field(min_length=1, max_length=120)
     descricao: str = ""
     estimativa: Estimativa
     bloco: Bloco
-    responsavel: Optional[str] = None
+    responsavel: Optional[str] = Field(default=None, max_length=80)
 
 
 class TaskEdicao(BaseModel):
     """Edicao parcial: so os campos enviados sao alterados."""
 
-    titulo: Optional[str] = None
+    titulo: Optional[str] = Field(default=None, min_length=1, max_length=120)
     descricao: Optional[str] = None
     estimativa: Optional[Estimativa] = None
     bloco: Optional[Bloco] = None
-    responsavel: Optional[str] = None
+    responsavel: Optional[str] = Field(default=None, max_length=80)
 
 
 class Bloqueio(BaseModel):
