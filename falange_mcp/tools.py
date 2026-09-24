@@ -7,6 +7,7 @@ testar cada uma sem subir servidor nenhum.
 Regra: as tools falam com o backend por HTTP. Nunca com o Postgres direto.
 """
 
+import os
 import re
 from pathlib import Path
 
@@ -29,6 +30,15 @@ EXTENSOES_OK = {
     ".json", ".yaml", ".yml", ".toml", ".sql", ".sh",
 }
 MAX_CHARS = 20_000
+MAX_CHARS_PASTA = 60_000
+
+# Pastas que nunca interessam: dependencia, build e lixo de ferramenta.
+PASTAS_IGNORADAS = {
+    ".git", "node_modules", ".venv", "__pycache__", ".next", "dist", "build",
+}
+
+# Documentacao primeiro, codigo depois: a IA le o "porque" antes do "como".
+EXTENSOES_DOC = {".md", ".rst", ".txt"}
 
 
 def _erro_422(corpo: dict) -> str:
@@ -248,9 +258,10 @@ def _resolver_caminho(caminho: str) -> Path:
 
     if not alvo.is_relative_to(root):
         raise ValueError(f"caminho fora da raiz permitida ({root}): {caminho}")
-    if not alvo.exists() or not alvo.is_file():
-        raise ValueError(f"arquivo nao encontrado: {caminho}")
-    if alvo.suffix.lower() not in EXTENSOES_OK:
+    if not alvo.exists():
+        raise ValueError(f"arquivo ou pasta nao encontrado: {caminho}")
+    # Pasta passa direto: a filtragem por extensao acontece arquivo a arquivo.
+    if alvo.is_file() and alvo.suffix.lower() not in EXTENSOES_OK:
         raise ValueError(f"extensao nao suportada: {alvo.suffix}")
     return alvo
 
@@ -263,8 +274,87 @@ def _extrair_estrutura(texto: str) -> dict:
     }
 
 
+def _ler_pasta(raiz: Path) -> tuple[str, list[str], list[dict]]:
+    """Concatena os arquivos da pasta ate MAX_CHARS_PASTA.
+
+    Devolve (conteudo, lidos, ignorados). Cada ignorado diz o motivo, para a
+    IA saber o que ficou de fora em vez de achar que leu tudo.
+    """
+    candidatos: list[Path] = []
+    ignorados: list[dict] = []
+
+    for pasta, subpastas, arquivos in os.walk(raiz):
+        atual = Path(pasta)
+        podadas = sorted(d for d in subpastas if d in PASTAS_IGNORADAS)
+        for nome in podadas:
+            ignorados.append(
+                {
+                    "caminho": f"{(atual / nome).relative_to(raiz).as_posix()}/",
+                    "motivo": "pasta ignorada",
+                }
+            )
+        # Poda in-place: os.walk nao desce no que sai desta lista.
+        subpastas[:] = sorted(d for d in subpastas if d not in PASTAS_IGNORADAS)
+
+        for nome in sorted(arquivos):
+            arquivo = atual / nome
+            if arquivo.suffix.lower() in EXTENSOES_OK:
+                candidatos.append(arquivo)
+            else:
+                ignorados.append(
+                    {
+                        "caminho": arquivo.relative_to(raiz).as_posix(),
+                        "motivo": "extensao",
+                    }
+                )
+
+    # Doc antes de codigo; dentro de cada grupo, ordem alfabetica do caminho.
+    candidatos.sort(
+        key=lambda a: (
+            0 if a.suffix.lower() in EXTENSOES_DOC else 1,
+            a.relative_to(raiz).as_posix(),
+        )
+    )
+
+    partes: list[str] = []
+    lidos: list[str] = []
+    usado = 0
+    estourou = False
+
+    for arquivo in candidatos:
+        relativo = arquivo.relative_to(raiz).as_posix()
+        if estourou:
+            ignorados.append({"caminho": relativo, "motivo": "limite"})
+            continue
+
+        corpo = arquivo.read_text(encoding="utf-8", errors="replace")
+        bloco = f"=== {relativo} ===\n{corpo}\n"
+        if usado + len(bloco) > MAX_CHARS_PASTA:
+            # Se nem o primeiro arquivo cabe, entra cortado: melhor material
+            # parcial do que devolver nada.
+            if not partes:
+                partes.append(bloco[:MAX_CHARS_PASTA])
+                lidos.append(relativo)
+                usado = MAX_CHARS_PASTA
+            else:
+                ignorados.append({"caminho": relativo, "motivo": "limite"})
+            estourou = True
+            continue
+
+        partes.append(bloco)
+        lidos.append(relativo)
+        usado += len(bloco)
+
+    return "".join(partes), lidos, ignorados
+
+
 def gerar_tasks_a_partir_de_arquivo(caminho: str) -> dict:
-    """Le um arquivo e devolve o material para a IA redigir as pre-tasks.
+    """Le um arquivo OU uma pasta e devolve o material para a IA redigir as
+    pre-tasks.
+
+    Pasta e percorrida de forma recursiva, so com as extensoes suportadas,
+    pulando dependencia e build; documentacao vem antes de codigo e o
+    resultado traz `arquivos_lidos` e `arquivos_ignorados`.
 
     NAO cria nada no banco e NAO inventa texto: devolve conteudo, estrutura
     extraida, o contrato do template e as tasks que ja existem (para a IA
@@ -275,8 +365,18 @@ def gerar_tasks_a_partir_de_arquivo(caminho: str) -> dict:
     except ValueError as e:
         return {"erro": str(e)}
 
-    texto = alvo.read_text(encoding="utf-8", errors="replace")
-    truncado = len(texto) > MAX_CHARS
+    if alvo.is_dir():
+        texto, lidos, ignorados = _ler_pasta(alvo)
+        extra = {"arquivos_lidos": lidos, "arquivos_ignorados": ignorados}
+        truncado = any(i["motivo"] == "limite" for i in ignorados)
+        tamanho = len(texto)
+    else:
+        texto = alvo.read_text(encoding="utf-8", errors="replace")
+        extra = {}
+        truncado = len(texto) > MAX_CHARS
+        # tamanho_chars segue sendo o do arquivo inteiro, nao o do trecho.
+        tamanho = len(texto)
+        texto = texto[:MAX_CHARS]
 
     # Backend fora do ar nao impede a leitura do arquivo: a IA ainda consegue
     # redigir, so perde a checagem de duplicata.
@@ -291,10 +391,11 @@ def gerar_tasks_a_partir_de_arquivo(caminho: str) -> dict:
 
     return {
         "arquivo": str(alvo),
-        "tamanho_chars": len(texto),
+        "tamanho_chars": tamanho,
         "truncado": truncado,
-        "conteudo": texto[:MAX_CHARS],
+        "conteudo": texto,
         "estrutura": _extrair_estrutura(texto),
+        **extra,
         "template": TEMPLATE_CONTRATO,
         "blocos_validos": list(BLOCOS),
         "estimativas_validas": list(ESTIMATIVAS),

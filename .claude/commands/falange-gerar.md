@@ -1,9 +1,10 @@
 ---
-description: Transforma um arquivo de documentacao ou codigo em tasks do Falange (sugere, valida, cria apos sua aprovacao)
-argument-hint: <caminho do arquivo>
+description: Transforma um arquivo ou uma pasta de documentacao/codigo em tasks do Falange (sugere, valida, cria apos sua aprovacao)
+argument-hint: <caminho do arquivo ou da pasta>
 ---
 
-Gere tasks do Falange a partir do arquivo `$ARGUMENTS`.
+Gere tasks do Falange a partir de `$ARGUMENTS`, que pode ser um arquivo
+ou uma pasta.
 
 Use SOMENTE as tools do servidor MCP `falange`. Nao leia o arquivo com Read,
 nao edite codigo, nao acesse o banco. Se `$ARGUMENTS` estiver vazio, pergunte
@@ -14,11 +15,16 @@ o caminho e pare.
 Chame `gerar_tasks_a_partir_de_arquivo` com `caminho: "$ARGUMENTS"`.
 
 - Se voltar `erro`, mostre a mensagem e pare. "Fora da raiz permitida"
-  significa que o arquivo esta fora de `FALANGE_DOCS_ROOT`.
+  significa que o caminho esta fora de `FALANGE_DOCS_ROOT`.
 - `template` e a regra de escrita: siga exatamente.
 - `tasks_existentes` e o que ja existe: nao proponha duplicata.
 - `estrutura` (titulos, TODO/FIXME, itens de lista) e o mapa do que o
-  arquivo pede.
+  material pede.
+- Sendo pasta, o conteudo vem concatenado com um cabecalho
+  `=== <caminho> ===` por arquivo, documentacao antes de codigo. Confira
+  `arquivos_lidos` e `arquivos_ignorados`: se algo importante ficou de fora
+  por `limite`, diga isso ao usuario no passo 4, em vez de fingir que leu
+  tudo.
 
 ## 2. Redigir
 

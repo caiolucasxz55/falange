@@ -92,7 +92,7 @@ banco nem por engano.
 | `mudar_status` | sim (concluir limpa o bloqueio) |
 | `contar_tasks_por_bloco` | nao |
 | `verificar_sobrecarga` | nao |
-| `gerar_tasks_a_partir_de_arquivo` | **nao** - so sugere, para voce revisar |
+| `gerar_tasks_a_partir_de_arquivo` | **nao** - aceita arquivo ou pasta; so sugere, para voce revisar |
 | `validar_task` | nao |
 
 Toda task tem `prioridade` (alta/media/baixa, padrao media) e os marcos de
@@ -104,13 +104,17 @@ Nenhuma tool levanta excecao para erro previsivel: devolve
 `{"erro": "<frase>"}`. Quem le isso e um modelo, e uma excecao vira
 `Error executing tool X` do lado do client, que nao diz o que corrigir.
 
-`gerar_tasks_a_partir_de_arquivo` le o arquivo e devolve conteudo,
-estrutura extraida, o template e as tasks existentes. Quem redige as
+`gerar_tasks_a_partir_de_arquivo` aceita um arquivo ou uma pasta e devolve
+conteudo, estrutura extraida, o template e as tasks existentes. Pasta e
+percorrida de forma recursiva (ate 60 mil caracteres), pulando `.git`,
+`node_modules`, `.venv`, `__pycache__`, `.next`, `dist` e `build`, com
+documentacao antes de codigo; a resposta traz `arquivos_lidos` e
+`arquivos_ignorados` com o motivo de cada exclusao. Quem redige as
 pre-tasks e a IA que chamou. `validar_task` aplica lint deterministico
 (tamanho, enchimento, criterio de aceite, coerencia da estimativa,
 duplicata) - nao depende do humor do modelo.
 
-A leitura de arquivo e limitada a `FALANGE_DOCS_ROOT` (`/app/exemplos` no
+A leitura (de arquivo ou pasta) e limitada a `FALANGE_DOCS_ROOT` (`/app/exemplos` no
 container). Caminho absoluto ou `../` fora dessa raiz e recusado - importa
 porque o `mcp-sse` e o que fica exposto ao time.
 
@@ -158,8 +162,8 @@ nova na extensao), aceite a confianca na pasta e aprove o servidor `falange`.
 Sem isso o Claude Code ignora as permissoes de `.claude/settings.json` e o
 servidor fica "Pending approval". `apagar_task` sempre pede confirmacao.
 
-`/falange-gerar` so le arquivos dentro de `FALANGE_DOCS_ROOT` (no `.mcp.json`,
-a raiz deste repo). Para gerar tasks da documentacao de outro projeto, aponte
+`/falange-gerar` so le arquivos e pastas dentro de `FALANGE_DOCS_ROOT`
+(no `.mcp.json`, a raiz deste repo). Para gerar tasks da documentacao de outro projeto, aponte
 essa variavel para ele.
 
 ## Adicionar uma tool
@@ -185,5 +189,7 @@ Os dois transportes ganham a tool automaticamente.
 
 ## Fora do escopo do V1
 
-Frontend de verdade (o atual e so tela de teste), gamificacao/war room, autenticacao e multi-usuario. `responsavel`
+Design final do frontend (o board atual e funcional, nao definitivo), RAG
+com embeddings sobre a documentacao (V1 le a pasta inteira ate um limite),
+gamificacao/war room, autenticacao e multi-usuario. `responsavel`
 e texto simples de proposito - vira FK para usuario no V2.
