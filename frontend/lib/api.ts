@@ -1,4 +1,4 @@
-import type { NovaTask, Task } from "@/types/task";
+import type { EdicaoTask, FiltrosTask, NovaTask, Status, Task } from "@/types/task";
 
 /**
  * URL do backend Falange. Troque por NEXT_PUBLIC_API_URL no .env.local.
@@ -28,14 +28,46 @@ export function mensagemDoErro(erro: unknown): string {
 // endpoints
 // ---------------------------------------------------------------------------
 
-/** GET /tasks */
-export function listarTasks(): Promise<Task[]> {
-  return pedir<Task[]>("/tasks");
+/** GET /tasks. Os filtros vao como query string: quem filtra e o backend. */
+export function listarTasks(filtros: FiltrosTask = {}): Promise<Task[]> {
+  const query = new URLSearchParams();
+  for (const [campo, valor] of Object.entries(filtros)) {
+    const limpo = valor?.trim();
+    if (limpo) query.set(campo, limpo);
+  }
+  const busca = query.toString();
+  return pedir<Task[]>(busca ? `/tasks?${busca}` : "/tasks");
 }
 
 /** POST /tasks */
 export function criarTask(nova: NovaTask): Promise<Task> {
   return pedir<Task>("/tasks", { method: "POST", body: JSON.stringify(nova) });
+}
+
+/** PATCH /tasks/{taskId}. So os campos enviados mudam. */
+export function editarTask(taskId: number, campos: EdicaoTask): Promise<Task> {
+  // "" significa remover o responsavel; o backend so desatribui com null.
+  // Mesma convencao da tool do MCP, que faz essa conversao do lado dela.
+  const corpo: Record<string, unknown> = { ...campos };
+  if (campos.responsavel === "") corpo.responsavel = null;
+
+  return pedir<Task>(`/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(corpo),
+  });
+}
+
+/** PATCH /tasks/{taskId}/status */
+export function mudarStatus(taskId: number, status: Status): Promise<Task> {
+  return pedir<Task>(`/tasks/${taskId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** DELETE /tasks/{taskId}. Responde 204, sem corpo. */
+export async function apagarTask(taskId: number): Promise<void> {
+  await pedir<null>(`/tasks/${taskId}`, { method: "DELETE" });
 }
 
 /** PATCH /tasks/{taskId}/bloqueio. bloqueadaPor = null desbloqueia. */
@@ -65,6 +97,9 @@ async function pedir<T>(caminho: string, init: RequestInit = {}): Promise<T> {
   if (!resposta.ok) {
     throw new ApiError(resposta.status, await mensagemDeErro(resposta));
   }
+
+  // 204 (DELETE) nao tem corpo: json() estouraria.
+  if (resposta.status === 204) return null as T;
 
   // Fronteira de confianca: o JSON e assumido no formato T, sem validacao em
   // tempo de execucao. Suficiente para uma tela de teste contra o proprio backend.

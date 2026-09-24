@@ -44,6 +44,24 @@ export interface NovaTask {
   responsavel?: string | null;
 }
 
+/** Campos que o board consegue editar de uma task existente. */
+export interface EdicaoTask {
+  titulo?: string;
+  descricao?: string;
+  estimativa?: Estimativa;
+  bloco?: Bloco;
+  prioridade?: Prioridade;
+  /** "" remove o responsavel, mesma convencao da tool do MCP. */
+  responsavel?: string;
+}
+
+/** Filtros do topo do board. Vazio = sem filtro. */
+export interface FiltrosTask {
+  bloco?: Bloco | "";
+  prioridade?: Prioridade | "";
+  responsavel?: string;
+}
+
 export function isEstimativa(valor: string): valor is Estimativa {
   return (ESTIMATIVAS as readonly string[]).includes(valor);
 }
