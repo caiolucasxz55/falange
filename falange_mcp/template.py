@@ -13,6 +13,7 @@ import unicodedata
 ESTIMATIVAS = ("PP", "P", "M", "G")
 BLOCOS = ("frontend", "backend", "infra", "seguranca")
 STATUS = ("aberta", "em_andamento", "concluida")
+PRIORIDADES = ("alta", "media", "baixa")
 
 _ORDEM = {e: i for i, e in enumerate(ESTIMATIVAS)}
 
@@ -27,6 +28,12 @@ Cada pre-task DEVE ter exatamente estes campos:
   estimativa  - PP (ate ~2h) | P (ate ~1 dia) | M (ate ~3 dias) | G (mais que isso).
                 G e sinal de que talvez deva virar duas tasks.
   bloco       - frontend | backend | infra | seguranca
+  prioridade  - alta  (bloqueia outras tasks ou e pre-requisito de uma
+                       entrega proxima)
+                media (padrao; na duvida, e media)
+                baixa (pode esperar sem travar ninguem)
+
+Nao marque tudo como alta: se tudo e prioridade, nada e.
 
 Proibido: "etc", "entre outros", "melhorias gerais", "diversos ajustes",
 "e afins". Se nao souber o escopo, escreva menos, nao escreva vago.
@@ -86,6 +93,8 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
     descricao = (pre_task.get("descricao") or "").strip()
     estimativa = (pre_task.get("estimativa") or "").strip().upper()
     bloco = (pre_task.get("bloco") or "").strip().lower()
+    # Prioridade e opcional: ausente vale media, como no backend.
+    prioridade = (pre_task.get("prioridade") or "media").strip().lower()
     titulo_norm = _normalizar(titulo)
     descricao_norm = _normalizar(descricao)
 
@@ -125,6 +134,10 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
         motivos.append(f"estimativa '{estimativa}' invalida; use {'/'.join(ESTIMATIVAS)}")
     if bloco not in BLOCOS:
         motivos.append(f"bloco '{bloco}' invalido; use {'/'.join(BLOCOS)}")
+    if prioridade not in PRIORIDADES:
+        motivos.append(
+            f"prioridade '{prioridade}' invalida; use {'/'.join(PRIORIDADES)}"
+        )
 
     # --- coerencia estimativa x escopo ---
     sinais = contar_sinais_escopo(f"{titulo}\n{descricao}")

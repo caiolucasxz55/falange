@@ -26,8 +26,12 @@ Seja curto. Nesta ordem:
    de C esta em A).
 3. **Sobrecarga**: so o que tiver `sobrecarregado: true`, com
    `tasks_abertas` / `limite`. Se nada estiver, diga isso em uma linha.
-4. **Abertas**: tabela `#id | titulo | estimativa | bloco | status | responsavel`,
-   sem as concluidas.
+4. **Abertas**: tabela
+   `#id | titulo | prioridade | estimativa | bloco | status | responsavel | aberta ha`,
+   sem as concluidas, da prioridade mais alta para a mais baixa. "aberta ha" e
+   o numero de dias desde `criada_em`.
 
 Termine com no maximo duas observacoes, e so se forem uteis: por exemplo, um
-bloco sem nenhuma task, ou uma task G que talvez devesse ser quebrada.
+bloco sem nenhuma task, ou uma task G que talvez devesse ser quebrada. Se
+alguma task estiver em_andamento ha mais de 5 dias (conte de `iniciada_em`),
+cite ela: e sinal de trabalho parado.

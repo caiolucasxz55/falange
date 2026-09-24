@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
 from backend.db import get_session
-from backend.models import Bloco, Status
+from backend.models import Bloco, Prioridade, Status
 from backend.schemas import (
     Bloqueio,
     Carga,
@@ -50,9 +50,16 @@ async def listar_tasks(
     bloco: Optional[Bloco] = None,
     status: Optional[Status] = None,
     responsavel: Optional[str] = None,
+    prioridade: Optional[Prioridade] = None,
     session: AsyncSession = Depends(get_session),
 ):
-    return await crud.listar(session, bloco=bloco, status=status, responsavel=responsavel)
+    return await crud.listar(
+        session,
+        bloco=bloco,
+        status=status,
+        responsavel=responsavel,
+        prioridade=prioridade,
+    )
 
 
 @app.get("/tasks/contagem-por-bloco")

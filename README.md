@@ -95,6 +95,11 @@ banco nem por engano.
 | `gerar_tasks_a_partir_de_arquivo` | **nao** - so sugere, para voce revisar |
 | `validar_task` | nao |
 
+Toda task tem `prioridade` (alta/media/baixa, padrao media) e os marcos de
+tempo `criada_em`, `atualizada_em`, `iniciada_em` e `concluida_em`.
+`listar_tasks` devolve as mais prioritarias primeiro e aceita filtro por
+`prioridade`.
+
 Nenhuma tool levanta excecao para erro previsivel: devolve
 `{"erro": "<frase>"}`. Quem le isso e um modelo, e uma excecao vira
 `Error executing tool X` do lado do client, que nao diz o que corrigir.

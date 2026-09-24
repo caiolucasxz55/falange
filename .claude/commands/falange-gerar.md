@@ -45,8 +45,8 @@ Chame `validar_task` para cada pre-task (`titulo`, `descricao`, `estimativa`,
 
 ## 4. Revisao (obrigatoria)
 
-Mostre uma tabela: numero, titulo, bloco, estimativa, veredito, depende de.
-Abaixo dela, a descricao de cada uma.
+Mostre uma tabela: numero, titulo, bloco, estimativa, prioridade, veredito,
+depende de. Abaixo dela, a descricao de cada uma.
 
 Pergunte quais criar: todas as aprovadas, uma lista de numeros, ou nenhuma.
 Pergunte tambem se ha um `responsavel`.
@@ -64,7 +64,8 @@ Para as escolhidas:
 
 ## 6. Relatorio
 
-Liste o que foi criado (`#id titulo [estimativa/bloco]`) e os bloqueios.
+Liste o que foi criado (`#id titulo [estimativa/bloco/prioridade]`), com as
+de prioridade alta primeiro, e os bloqueios.
 Chame `contar_tasks_por_bloco` e mostre o total por bloco.
 
 Diga que as tasks aparecem em http://localhost:3010 ao clicar em

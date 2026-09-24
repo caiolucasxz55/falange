@@ -10,6 +10,9 @@ import {
   type Estimativa,
   isBloco,
   isEstimativa,
+  isPrioridade,
+  PRIORIDADES,
+  type Prioridade,
   type Task,
 } from "@/types/task";
 
@@ -18,6 +21,7 @@ interface Campos {
   descricao: string;
   estimativa: Estimativa;
   bloco: Bloco;
+  prioridade: Prioridade;
   responsavel: string;
 }
 
@@ -26,6 +30,7 @@ const CAMPOS_INICIAIS: Campos = {
   descricao: "",
   estimativa: "P",
   bloco: "backend",
+  prioridade: "media",
   responsavel: "",
 };
 
@@ -56,6 +61,7 @@ export function TaskForm({ onCriada }: TaskFormProps) {
         descricao: campos.descricao.trim(),
         estimativa: campos.estimativa,
         bloco: campos.bloco,
+        prioridade: campos.prioridade,
         responsavel: campos.responsavel.trim() || null,
       });
       setCampos(CAMPOS_INICIAIS);
@@ -133,6 +139,24 @@ export function TaskForm({ onCriada }: TaskFormProps) {
           </select>
         </label>
       </div>
+
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium text-gray-700">Prioridade</span>
+        <select
+          value={campos.prioridade}
+          onChange={(e) => {
+            const valor = e.target.value;
+            if (isPrioridade(valor)) atualizar("prioridade", valor);
+          }}
+          className={estiloCampo}
+        >
+          {PRIORIDADES.map((prioridade) => (
+            <option key={prioridade} value={prioridade}>
+              {prioridade}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-gray-700">

@@ -2,10 +2,18 @@
 
 from typing import Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import ABERTAS, Bloco, Status, Task
+from backend.models import ABERTAS, Bloco, Prioridade, Status, Task
+
+
+# CASE explicito: a ordem do enum no Postgres nao e a ordem de prioridade.
+_ORDEM_PRIORIDADE = case(
+    (Task.prioridade == Prioridade.alta, 0),
+    (Task.prioridade == Prioridade.media, 1),
+    else_=2,
+)
 
 
 async def criar(session: AsyncSession, dados: dict) -> Task:
@@ -25,14 +33,17 @@ async def listar(
     bloco: Optional[Bloco] = None,
     status: Optional[Status] = None,
     responsavel: Optional[str] = None,
+    prioridade: Optional[Prioridade] = None,
 ) -> list[Task]:
-    q = select(Task).order_by(Task.id)
+    q = select(Task).order_by(_ORDEM_PRIORIDADE, Task.id)
     if bloco is not None:
         q = q.where(Task.bloco == bloco)
     if status is not None:
         q = q.where(Task.status == status)
     if responsavel is not None:
         q = q.where(Task.responsavel == responsavel)
+    if prioridade is not None:
+        q = q.where(Task.prioridade == prioridade)
     return list((await session.scalars(q)).all())
 
 
@@ -70,6 +81,7 @@ async def definir_bloqueio(
             )
 
     task.bloqueada_por = bloqueada_por
+    task.atualizada_em = func.now()
     await session.commit()
     await session.refresh(task)
     return task, None
@@ -82,15 +94,26 @@ async def definir_status(
     if task is None:
         return None
     task.status = status
+    task.atualizada_em = func.now()
+
+    # Primeira ida para em_andamento marca o inicio; depois nao sobrescreve.
+    if status is Status.em_andamento and task.iniciada_em is None:
+        task.iniciada_em = func.now()
+
     # Task concluida nao fica pendurada em bloqueio: o fato deixou de valer.
     # E quem esperava por ela tambem e liberado, no mesmo commit.
     if status is Status.concluida:
+        task.concluida_em = func.now()
         task.bloqueada_por = None
         await session.execute(
             update(Task)
             .where(Task.bloqueada_por == task_id)
-            .values(bloqueada_por=None)
+            .values(bloqueada_por=None, atualizada_em=func.now())
         )
+    else:
+        # Reabrir (aberta ou em_andamento) desfaz a conclusao.
+        task.concluida_em = None
+
     await session.commit()
     await session.refresh(task)
     return task
@@ -125,6 +148,7 @@ async def editar(
         return None
     for campo, valor in campos.items():
         setattr(task, campo, valor)
+    task.atualizada_em = func.now()
     await session.commit()
     await session.refresh(task)
     return task

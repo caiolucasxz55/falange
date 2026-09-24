@@ -1,9 +1,16 @@
-import type { Status, Task } from "@/types/task";
+import { diasDesde, type Prioridade, type Status, type Task } from "@/types/task";
 
 const ROTULO_STATUS: Record<Status, string> = {
   aberta: "Aberta",
   em_andamento: "Em andamento",
   concluida: "Concluida",
+};
+
+// Cor por prioridade: alta chama atencao, baixa recua.
+const ESTILO_PRIORIDADE: Record<Prioridade, string> = {
+  alta: "bg-red-100 text-red-700",
+  media: "bg-gray-100 text-gray-700",
+  baixa: "bg-gray-100 text-gray-500",
 };
 
 interface TaskCardProps {
@@ -34,7 +41,10 @@ export function TaskCard({ task }: TaskCardProps) {
         <p className="mt-2 whitespace-pre-line text-sm text-gray-600">{task.descricao}</p>
       )}
 
-      <footer className="mt-3 flex flex-wrap gap-2 text-xs">
+      <footer className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className={`rounded px-2 py-0.5 font-medium ${ESTILO_PRIORIDADE[task.prioridade]}`}>
+          {task.prioridade}
+        </span>
         <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-700">
           Estimativa: {task.estimativa}
         </span>
@@ -47,6 +57,7 @@ export function TaskCard({ task }: TaskCardProps) {
             {task.responsavel}
           </span>
         )}
+        <span className="text-gray-400">criada ha {diasDesde(task.criada_em)}d</span>
       </footer>
     </article>
   );

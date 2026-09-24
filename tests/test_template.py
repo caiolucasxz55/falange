@@ -70,3 +70,29 @@ def test_duplicata_detectada_apesar_do_acento():
     )
     assert veredito["veredito"] == "precisa_de_ajuste"
     assert any("duplicata da task #7" in m for m in veredito["motivos"])
+
+
+def test_prioridade_invalida_e_reprovada():
+    veredito = validar_pre_task(
+        {
+            "titulo": "Recusar ciclo de bloqueio ao definir dependencia",
+            "descricao": BOA_DESCRICAO,
+            "estimativa": "P",
+            "bloco": "backend",
+            "prioridade": "urgentissima",
+        }
+    )
+    assert veredito["veredito"] == "precisa_de_ajuste"
+    assert any("prioridade 'urgentissima' invalida" in m for m in veredito["motivos"])
+
+
+def test_prioridade_ausente_vale_media():
+    veredito = validar_pre_task(
+        {
+            "titulo": "Recusar ciclo de bloqueio ao definir dependencia",
+            "descricao": BOA_DESCRICAO,
+            "estimativa": "P",
+            "bloco": "backend",
+        }
+    )
+    assert veredito["veredito"] == "aprovada", veredito["motivos"]

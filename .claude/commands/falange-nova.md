@@ -19,6 +19,9 @@ Monte os campos a partir do pedido:
   Termine com uma linha `Criterio de aceite: ...`.
 - `estimativa`: PP (ate ~2h), P (ate ~1 dia), M (ate ~3 dias), G (mais que isso).
 - `bloco`: frontend, backend, infra ou seguranca.
+- `prioridade`: alta se trava outra task ou e pre-requisito de uma entrega
+  proxima; baixa se pode esperar sem travar ninguem; media no resto. Se o
+  pedido nao indicar nada, use media.
 - `responsavel`: so se o pedido citar alguem.
 
 Nao invente escopo que o pedido nao tem. Se faltar informacao essencial
@@ -46,7 +49,7 @@ voltar `erro`, reporte.
 
 ## 4. Relatorio
 
-Mostre `#id titulo [estimativa/bloco]`, a descricao final e o bloqueio, se
+Mostre `#id titulo [estimativa/bloco/prioridade]`, a descricao final e o bloqueio, se
 houver. Se voce mudou algo relevante do pedido original, diga o que.
 
 Lembre que ela aparece em http://localhost:3010 ao clicar em **Recarregar**.

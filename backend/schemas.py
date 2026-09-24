@@ -1,10 +1,11 @@
 """Contratos de entrada e saida da API."""
 
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.models import Bloco, Estimativa, Status
+from backend.models import Bloco, Estimativa, Prioridade, Status
 
 
 class TaskOut(BaseModel):
@@ -18,6 +19,11 @@ class TaskOut(BaseModel):
     responsavel: Optional[str] = None
     bloqueada_por: Optional[int] = None
     status: Status
+    prioridade: Prioridade
+    criada_em: datetime
+    atualizada_em: datetime
+    iniciada_em: Optional[datetime] = None
+    concluida_em: Optional[datetime] = None
 
 
 class TaskNova(BaseModel):
@@ -25,6 +31,7 @@ class TaskNova(BaseModel):
     descricao: str = ""
     estimativa: Estimativa
     bloco: Bloco
+    prioridade: Prioridade = Prioridade.media
     responsavel: Optional[str] = Field(default=None, max_length=80)
 
 
@@ -35,6 +42,7 @@ class TaskEdicao(BaseModel):
     descricao: Optional[str] = None
     estimativa: Optional[Estimativa] = None
     bloco: Optional[Bloco] = None
+    prioridade: Optional[Prioridade] = None
     responsavel: Optional[str] = Field(default=None, max_length=80)
 
 

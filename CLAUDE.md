@@ -15,6 +15,10 @@ a #6").
 Antes de criar qualquer task, passe por `validar_task` e corrija o conteudo
 ate aprovar.
 
+Prioridade: `alta` so quando a task trava outra ou e pre-requisito de uma
+entrega proxima; `baixa` quando pode esperar sem travar ninguem; `media` no
+resto. Se tudo for alta, nada e.
+
 Comandos prontos:
 
 - `/falange-gerar <arquivo>`: documentacao ou codigo vira tasks. Sugere,

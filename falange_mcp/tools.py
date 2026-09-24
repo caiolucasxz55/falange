@@ -16,6 +16,7 @@ from falange_mcp.config import settings
 from falange_mcp.template import (
     BLOCOS,
     ESTIMATIVAS,
+    PRIORIDADES,
     STATUS,
     TEMPLATE_CONTRATO,
     validar_pre_task,
@@ -77,12 +78,17 @@ def criar_task(
     estimativa: str,
     bloco: str,
     descricao: str = "",
+    prioridade: str = "media",
     responsavel: str | None = None,
 ) -> dict:
-    """Cria uma task. estimativa: PP/P/M/G. bloco: frontend/backend/infra/seguranca."""
+    """Cria uma task. estimativa: PP/P/M/G. bloco: frontend/backend/infra/seguranca.
+
+    prioridade: alta/media/baixa (padrao media).
+    """
     for erro in (
         _checar(estimativa, ESTIMATIVAS, "estimativa"),
         _checar(bloco, BLOCOS, "bloco"),
+        _checar(prioridade, PRIORIDADES, "prioridade"),
     ):
         if erro:
             return {"erro": erro}
@@ -95,6 +101,7 @@ def criar_task(
             "descricao": descricao,
             "estimativa": estimativa,
             "bloco": bloco,
+            "prioridade": prioridade,
             "responsavel": responsavel,
         },
     )
@@ -104,15 +111,28 @@ def listar_tasks(
     bloco: str | None = None,
     status: str | None = None,
     responsavel: str | None = None,
+    prioridade: str | None = None,
 ) -> list | dict:
-    """Lista tasks. Filtros opcionais por bloco, status e responsavel."""
-    for erro in (_checar(bloco, BLOCOS, "bloco"), _checar(status, STATUS, "status")):
+    """Lista tasks, das mais prioritarias para as menos.
+
+    Filtros opcionais por bloco, status, responsavel e prioridade.
+    """
+    for erro in (
+        _checar(bloco, BLOCOS, "bloco"),
+        _checar(status, STATUS, "status"),
+        _checar(prioridade, PRIORIDADES, "prioridade"),
+    ):
         if erro:
             return {"erro": erro}
 
     params = {
         k: v
-        for k, v in {"bloco": bloco, "status": status, "responsavel": responsavel}.items()
+        for k, v in {
+            "bloco": bloco,
+            "status": status,
+            "responsavel": responsavel,
+            "prioridade": prioridade,
+        }.items()
         if v
     }
     return _pedir("GET", "/tasks", params=params or None)
@@ -143,6 +163,7 @@ def editar_task(
     descricao: str | None = None,
     estimativa: str | None = None,
     bloco: str | None = None,
+    prioridade: str | None = None,
     responsavel: str | None = None,
 ) -> dict:
     """Corrige campos de uma task existente. So os campos enviados mudam.
@@ -152,6 +173,7 @@ def editar_task(
     for erro in (
         _checar(estimativa, ESTIMATIVAS, "estimativa"),
         _checar(bloco, BLOCOS, "bloco"),
+        _checar(prioridade, PRIORIDADES, "prioridade"),
     ):
         if erro:
             return {"erro": erro}
@@ -163,6 +185,7 @@ def editar_task(
             "descricao": descricao,
             "estimativa": estimativa,
             "bloco": bloco,
+            "prioridade": prioridade,
         }.items()
         if v is not None
     }
@@ -286,7 +309,12 @@ def gerar_tasks_a_partir_de_arquivo(caminho: str) -> dict:
 
 
 def validar_task(
-    titulo: str, descricao: str, estimativa: str, bloco: str, checar_duplicata: bool = True
+    titulo: str,
+    descricao: str,
+    estimativa: str,
+    bloco: str,
+    prioridade: str = "media",
+    checar_duplicata: bool = True,
 ) -> dict:
     """Veredito sobre uma pre-task: aprovada ou precisa_de_ajuste + motivos."""
     existentes = []
@@ -301,6 +329,7 @@ def validar_task(
             "descricao": descricao,
             "estimativa": estimativa,
             "bloco": bloco,
+            "prioridade": prioridade,
         },
         existentes,
     )

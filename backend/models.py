@@ -7,7 +7,9 @@ Essa e a simplificacao em relacao ao Jira, nao uma etapa faltando.
 from enum import Enum as PyEnum
 from typing import Optional
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -27,6 +29,12 @@ class Bloco(str, PyEnum):
     backend = "backend"
     infra = "infra"
     seguranca = "seguranca"
+
+
+class Prioridade(str, PyEnum):
+    alta = "alta"
+    media = "media"
+    baixa = "baixa"
 
 
 class Status(str, PyEnum):
@@ -59,4 +67,25 @@ class Task(Base):
 
     status: Mapped[Status] = mapped_column(
         Enum(Status, name="status"), default=Status.aberta
+    )
+
+    prioridade: Mapped[Prioridade] = mapped_column(
+        Enum(Prioridade, name="prioridade"), default=Prioridade.media, index=True
+    )
+
+    # Marcos de tempo. O crud atualiza atualizada_em explicitamente em cada
+    # escrita: sem trigger no banco, para a regra ficar visivel no codigo.
+    criada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    atualizada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    # Primeira ida para em_andamento; nao e sobrescrita depois.
+    iniciada_em: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Volta a NULL se a task for reaberta.
+    concluida_em: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
