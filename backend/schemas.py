@@ -78,3 +78,15 @@ class NotaNova(BaseModel):
     texto: str = Field(min_length=5, max_length=2000)
     autor: Optional[str] = Field(default=None, max_length=80)
     task_id: Optional[int] = None
+
+
+class NotaEdicao(BaseModel):
+    """Edicao parcial da nota: so os campos enviados sao alterados.
+
+    `resolvida` aqui tambem reabre uma nota fechada por engano.
+    """
+
+    texto: Optional[str] = Field(default=None, min_length=5, max_length=2000)
+    autor: Optional[str] = Field(default=None, max_length=80)
+    task_id: Optional[int] = None
+    resolvida: Optional[bool] = None

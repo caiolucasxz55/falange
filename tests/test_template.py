@@ -96,3 +96,16 @@ def test_prioridade_ausente_vale_media():
         }
     )
     assert veredito["veredito"] == "aprovada", veredito["motivos"]
+
+
+def test_bloco_e_prioridade_com_acento_sao_aceitos():
+    veredito = validar_pre_task(
+        {
+            "titulo": "Restringir origens do CORS por ambiente",
+            "descricao": BOA_DESCRICAO,
+            "estimativa": "P",
+            "bloco": "segurança",
+            "prioridade": "média",
+        }
+    )
+    assert veredito["veredito"] == "aprovada", veredito["motivos"]

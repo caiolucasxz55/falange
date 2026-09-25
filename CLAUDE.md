@@ -35,7 +35,8 @@ corrija a chamada. "Backend inacessivel" significa que a stack esta fora:
 Pedidos como "anota que...", "registra que...", "deixa uma nota..." viram
 `registrar_nota`, nao task. Nota e problema, decisao ou duvida que precisa
 de mais gente, sem virar task bloqueada so para ser discutida. `listar_notas`
-le e `resolver_nota` fecha, sem apagar.
+le, `resolver_nota` fecha sem apagar, `editar_nota` corrige (e reabre, com
+`resolvida=false`) e `apagar_nota` remove de vez.
 
 ## Codigo
 

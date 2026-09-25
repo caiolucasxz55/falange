@@ -7,7 +7,7 @@ direto com o banco -- uma fonte de verdade so.
 
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,7 @@ from backend.schemas import (
     Bloqueio,
     Carga,
     MudancaStatus,
+    NotaEdicao,
     NotaNova,
     NotaOut,
     TaskEdicao,
@@ -132,7 +133,9 @@ async def editar_task(
     return task
 
 
-@app.delete("/tasks/{task_id}", status_code=204)
+# response_class=Response: um 204 nao pode ter corpo, e sem isso o FastAPI
+# ainda manda content-type: application/json, o que faz o navegador abortar.
+@app.delete("/tasks/{task_id}", status_code=204, response_class=Response)
 async def apagar_task(task_id: int, session: AsyncSession = Depends(get_session)):
     if not await crud.remover(session, task_id):
         raise HTTPException(404, f"task {task_id} nao encontrada")
@@ -165,3 +168,26 @@ async def resolver_nota(nota_id: int, session: AsyncSession = Depends(get_sessio
     if nota is None:
         raise HTTPException(404, f"nota {nota_id} nao encontrada")
     return nota
+
+
+@app.patch("/notas/{nota_id}", response_model=NotaOut)
+async def editar_nota(
+    nota_id: int, body: NotaEdicao, session: AsyncSession = Depends(get_session)
+):
+    campos = body.model_dump(exclude_unset=True)
+    if not campos:
+        raise HTTPException(400, "nenhum campo para alterar")
+    if campos.get("task_id") is not None:
+        if await crud.buscar(session, campos["task_id"]) is None:
+            raise HTTPException(404, f"task {campos['task_id']} nao encontrada")
+
+    nota = await crud.editar_nota(session, nota_id, campos)
+    if nota is None:
+        raise HTTPException(404, f"nota {nota_id} nao encontrada")
+    return nota
+
+
+@app.delete("/notas/{nota_id}", status_code=204, response_class=Response)
+async def apagar_nota(nota_id: int, session: AsyncSession = Depends(get_session)):
+    if not await crud.remover_nota(session, nota_id):
+        raise HTTPException(404, f"nota {nota_id} nao encontrada")

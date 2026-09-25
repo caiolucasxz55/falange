@@ -195,3 +195,26 @@ async def resolver_nota(session: AsyncSession, nota_id: int) -> Optional[Nota]:
     await session.commit()
     await session.refresh(nota)
     return nota
+
+
+async def editar_nota(
+    session: AsyncSession, nota_id: int, campos: dict
+) -> Optional[Nota]:
+    """Altera apenas os campos presentes em `campos`."""
+    nota = await session.get(Nota, nota_id)
+    if nota is None:
+        return None
+    for campo, valor in campos.items():
+        setattr(nota, campo, valor)
+    await session.commit()
+    await session.refresh(nota)
+    return nota
+
+
+async def remover_nota(session: AsyncSession, nota_id: int) -> bool:
+    nota = await session.get(Nota, nota_id)
+    if nota is None:
+        return False
+    await session.delete(nota)
+    await session.commit()
+    return True

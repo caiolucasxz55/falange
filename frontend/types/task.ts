@@ -96,3 +96,11 @@ export interface NovaNota {
   autor?: string | null;
   task_id?: number | null;
 }
+
+/** Edicao parcial da nota. `resolvida: false` reabre uma nota fechada. */
+export interface EdicaoNota {
+  texto?: string;
+  autor?: string | null;
+  task_id?: number | null;
+  resolvida?: boolean;
+}

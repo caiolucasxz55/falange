@@ -13,6 +13,7 @@ import {
 import {
   diasDesde,
   type EdicaoTask,
+  type Nota,
   type Prioridade,
   STATUS,
   type Status,
@@ -36,18 +37,27 @@ interface TaskCardProps {
   task: Task;
   /** Quantas tasks carregadas esta aqui esta travando. */
   travando: number;
+  /** Notas abertas ligadas a esta task. */
+  notas: Nota[];
   onAtualizada: (task: Task) => void;
   onApagada: (taskId: number) => void;
 }
 
 /** Card do board: exibe a task e executa as acoes sobre ela. */
-export function TaskCard({ task, travando, onAtualizada, onApagada }: TaskCardProps) {
+export function TaskCard({
+  task,
+  travando,
+  notas,
+  onAtualizada,
+  onApagada,
+}: TaskCardProps) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [bloqueando, setBloqueando] = useState(false);
   const [idBloqueadora, setIdBloqueadora] = useState("");
+  const [verNotas, setVerNotas] = useState(false);
 
   const bloqueada = task.bloqueada_por !== null;
   const posicao = STATUS.indexOf(task.status);
@@ -149,8 +159,28 @@ export function TaskCard({ task, travando, onAtualizada, onApagada }: TaskCardPr
                 travando {travando}
               </span>
             )}
+            {notas.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setVerNotas((v) => !v)}
+                className="rounded bg-sky-100 px-2 py-0.5 text-sky-800 hover:bg-sky-200"
+              >
+                {notas.length} nota{notas.length > 1 ? "s" : ""}
+              </button>
+            )}
             <span className="text-gray-400">ha {diasDesde(task.criada_em)}d</span>
           </div>
+
+          {verNotas && notas.length > 0 && (
+            <ul className="mt-2 space-y-1 rounded bg-sky-50 p-2">
+              {notas.map((nota) => (
+                <li key={nota.id} className="text-xs text-sky-900">
+                  {nota.texto}
+                  {nota.autor && <span className="text-sky-700"> - {nota.autor}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-2">
             {posicao > 0 && (

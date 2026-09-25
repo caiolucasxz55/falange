@@ -30,7 +30,7 @@ export default function Home() {
       <div className="grid gap-6 md:grid-cols-[20rem_1fr]">
         <aside>
           <TaskForm onCriada={recarregar} />
-          <PainelNotas />
+          <PainelNotas onMudou={recarregar} />
         </aside>
         <div>
           <Filtros filtros={filtros} onMudar={setFiltros} />

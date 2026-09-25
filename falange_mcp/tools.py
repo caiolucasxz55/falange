@@ -20,6 +20,7 @@ from falange_mcp.template import (
     PRIORIDADES,
     STATUS,
     TEMPLATE_CONTRATO,
+    normalizar,
     validar_pre_task,
 )
 
@@ -35,6 +36,7 @@ MAX_CHARS_PASTA = 60_000
 # Pastas que nunca interessam: dependencia, build e lixo de ferramenta.
 PASTAS_IGNORADAS = {
     ".git", "node_modules", ".venv", "__pycache__", ".next", "dist", "build",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache",
 }
 
 # Documentacao primeiro, codigo depois: a IA le o "porque" antes do "como".
@@ -73,9 +75,29 @@ def _pedir(metodo: str, caminho: str, **kw):
     return r.json()
 
 
+# Campos femininos, para a mensagem de erro concordar.
+_CAMPOS_FEMININOS = {"estimativa", "prioridade"}
+
+
+def _canonizar(valor: str | None, validos: tuple[str, ...]) -> str | None:
+    """Casa o valor com a opcao oficial ignorando acento e caixa.
+
+    "Seguranca", "SEGURANCA" e "seguranca" chegam como o mesmo bloco. Valor
+    que nao casa volta como veio, para a mensagem de erro citar o original.
+    """
+    if valor is None:
+        return None
+    alvo = normalizar(valor.strip())
+    for oficial in validos:
+        if normalizar(oficial) == alvo:
+            return oficial
+    return valor
+
+
 def _checar(valor, validos, campo: str) -> str | None:
     if valor is not None and valor not in validos:
-        return f"{campo} '{valor}' invalido; use {'/'.join(validos)}"
+        genero = "invalida" if campo in _CAMPOS_FEMININOS else "invalido"
+        return f"{campo} '{valor}' {genero}; use {'/'.join(validos)}"
     return None
 
 
@@ -95,6 +117,9 @@ def criar_task(
 
     prioridade: alta/media/baixa (padrao media).
     """
+    estimativa = _canonizar(estimativa, ESTIMATIVAS)
+    bloco = _canonizar(bloco, BLOCOS)
+    prioridade = _canonizar(prioridade, PRIORIDADES)
     for erro in (
         _checar(estimativa, ESTIMATIVAS, "estimativa"),
         _checar(bloco, BLOCOS, "bloco"),
@@ -127,6 +152,9 @@ def listar_tasks(
 
     Filtros opcionais por bloco, status, responsavel e prioridade.
     """
+    bloco = _canonizar(bloco, BLOCOS)
+    status = _canonizar(status, STATUS)
+    prioridade = _canonizar(prioridade, PRIORIDADES)
     for erro in (
         _checar(bloco, BLOCOS, "bloco"),
         _checar(status, STATUS, "status"),
@@ -161,6 +189,7 @@ def mudar_status(task_id: int, status: str) -> dict:
     Concluir limpa o bloqueio da propria task e tambem libera as tasks que
     estavam bloqueadas por ela.
     """
+    status = _canonizar(status, STATUS)
     erro = _checar(status, STATUS, "status")
     if erro:
         return {"erro": erro}
@@ -180,6 +209,9 @@ def editar_task(
 
     Para remover o responsavel, passe responsavel="" (string vazia).
     """
+    estimativa = _canonizar(estimativa, ESTIMATIVAS)
+    bloco = _canonizar(bloco, BLOCOS)
+    prioridade = _canonizar(prioridade, PRIORIDADES)
     for erro in (
         _checar(estimativa, ESTIMATIVAS, "estimativa"),
         _checar(bloco, BLOCOS, "bloco"),
@@ -228,6 +260,7 @@ def verificar_sobrecarga(
     Informe bloco OU responsavel. `limite` e opcional: sem ele vale o padrao
     do servidor (LIMITE_SOBRECARGA).
     """
+    bloco = _canonizar(bloco, BLOCOS)
     erro = _checar(bloco, BLOCOS, "bloco")
     if erro:
         return {"erro": erro}
@@ -278,6 +311,38 @@ def listar_notas(
 def resolver_nota(nota_id: int) -> dict:
     """Marca a nota como resolvida. Nao apaga: o registro fica no historico."""
     return _pedir("PATCH", f"/notas/{nota_id}/resolver")
+
+
+def editar_nota(
+    nota_id: int,
+    texto: str | None = None,
+    autor: str | None = None,
+    task_id: int | None = None,
+    resolvida: bool | None = None,
+) -> dict:
+    """Corrige uma nota. So os campos enviados mudam.
+
+    `resolvida=False` reabre uma nota fechada por engano; `task_id` liga a
+    nota a uma task depois do registro.
+    """
+    campos = {
+        k: v
+        for k, v in {
+            "texto": texto,
+            "autor": autor,
+            "task_id": task_id,
+            "resolvida": resolvida,
+        }.items()
+        if v is not None
+    }
+    if not campos:
+        return {"erro": "informe ao menos um campo para alterar"}
+    return _pedir("PATCH", f"/notas/{nota_id}", json=campos)
+
+
+def apagar_nota(nota_id: int) -> dict:
+    """Remove a nota de vez. Para so encerrar o assunto, use resolver_nota."""
+    return _pedir("DELETE", f"/notas/{nota_id}")
 
 
 # --------------------------------------------------------------------------

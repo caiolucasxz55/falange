@@ -97,10 +97,16 @@ banco nem por engano.
 | `registrar_nota` | sim (nota, nao task) |
 | `listar_notas` | nao |
 | `resolver_nota` | sim (marca resolvida) |
+| `editar_nota` | sim (tambem reabre) |
+| `apagar_nota` | sim (remove de vez) |
 
 Notas sao o registro solto do time (problema, decisao ou duvida) para nao
 abrir task bloqueada so para discutir. Sobrevivem a exclusao da task ligada,
-com `task_id` voltando a null.
+com `task_id` voltando a null. `resolver_nota` encerra sem apagar,
+`editar_nota` com `resolvida=false` reabre, e `apagar_nota` remove de vez.
+
+Os valores de `bloco`, `prioridade`, `estimativa` e `status` aceitam acento e
+qualquer caixa: "Seguranca" e "seguranca" sao o mesmo bloco.
 
 Toda task tem `prioridade` (alta/media/baixa, padrao media) e os marcos de
 tempo `criada_em`, `atualizada_em`, `iniciada_em` e `concluida_em`.

@@ -1,4 +1,5 @@
 import type {
+  EdicaoNota,
   EdicaoTask,
   FiltrosTask,
   Nota,
@@ -100,6 +101,19 @@ export function registrarNota(nova: NovaNota): Promise<Nota> {
 /** PATCH /notas/{notaId}/resolver */
 export function resolverNota(notaId: number): Promise<Nota> {
   return pedir<Nota>(`/notas/${notaId}/resolver`, { method: "PATCH" });
+}
+
+/** PATCH /notas/{notaId} */
+export function editarNota(notaId: number, campos: EdicaoNota): Promise<Nota> {
+  return pedir<Nota>(`/notas/${notaId}`, {
+    method: "PATCH",
+    body: JSON.stringify(campos),
+  });
+}
+
+/** DELETE /notas/{notaId} */
+export async function apagarNota(notaId: number): Promise<void> {
+  await pedir<null>(`/notas/${notaId}`, { method: "DELETE" });
 }
 
 // ---------------------------------------------------------------------------

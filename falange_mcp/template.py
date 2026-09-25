@@ -61,7 +61,7 @@ _SINAIS_ESCOPO = [
 ]
 
 
-def _normalizar(texto: str) -> str:
+def normalizar(texto: str) -> str:
     """Minusculas e sem acento: os padroes deste modulo sao escritos sem acento,
     entao "Criterio" e "Criterio de aceite" precisam casar com "Critério"."""
     decomposto = unicodedata.normalize("NFKD", texto.lower())
@@ -79,7 +79,7 @@ def _faixa_esperada(sinais: int) -> tuple[int, int]:
 
 
 def contar_sinais_escopo(texto: str) -> int:
-    baixo = _normalizar(texto)
+    baixo = normalizar(texto)
     sinais = sum(1 for p in _SINAIS_ESCOPO if re.search(p, baixo))
     # Cada item de lista na descricao tambem e um sinal de escopo.
     sinais += min(len(re.findall(r"^\s*[-*]\s+", texto, re.M)), 4)
@@ -91,12 +91,13 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
     motivos: list[str] = []
     titulo = (pre_task.get("titulo") or "").strip()
     descricao = (pre_task.get("descricao") or "").strip()
-    estimativa = (pre_task.get("estimativa") or "").strip().upper()
-    bloco = (pre_task.get("bloco") or "").strip().lower()
+    # Sem acento e sem caixa: "Seguranca" e "seguranca" sao o mesmo bloco.
+    estimativa = normalizar(pre_task.get("estimativa") or "").upper()
+    bloco = normalizar(pre_task.get("bloco") or "")
     # Prioridade e opcional: ausente vale media, como no backend.
-    prioridade = (pre_task.get("prioridade") or "media").strip().lower()
-    titulo_norm = _normalizar(titulo)
-    descricao_norm = _normalizar(descricao)
+    prioridade = normalizar(pre_task.get("prioridade") or "media")
+    titulo_norm = normalizar(titulo)
+    descricao_norm = normalizar(descricao)
 
     # --- titulo ---
     if len(titulo) < 6:
@@ -158,7 +159,7 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
 
     # --- duplicata ---
     for existente in tasks_existentes or []:
-        outro = _normalizar(existente.get("titulo") or "")
+        outro = normalizar(existente.get("titulo") or "")
         if outro and difflib.SequenceMatcher(None, titulo_norm, outro).ratio() > 0.8:
             motivos.append(
                 f"parece duplicata da task #{existente.get('id')} '{existente.get('titulo')}'"

@@ -23,6 +23,8 @@ TOOLS = (
     tools.registrar_nota,
     tools.listar_notas,
     tools.resolver_nota,
+    tools.editar_nota,
+    tools.apagar_nota,
 )
 
 

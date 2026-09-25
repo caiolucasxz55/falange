@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { TaskCard } from "@/components/TaskCard";
-import { listarTasks, mensagemDoErro } from "@/lib/api";
-import { type FiltrosTask, STATUS, type Status, type Task } from "@/types/task";
+import { listarNotas, listarTasks, mensagemDoErro } from "@/lib/api";
+import { type FiltrosTask, type Nota, STATUS, type Status, type Task } from "@/types/task";
 
 const ROTULO_COLUNA: Record<Status, string> = {
   aberta: "Aberta",
@@ -19,7 +19,7 @@ const INTERVALO_POLLING = 15_000;
 // react-hooks/set-state-in-effect proibe). Como o polling nao muda a chave,
 // ele atualiza a lista sem piscar.
 type Resultado =
-  | { chave: string; tipo: "ok"; tasks: Task[] }
+  | { chave: string; tipo: "ok"; tasks: Task[]; notas: Nota[] }
   | { chave: string; tipo: "erro"; mensagem: string };
 
 interface BoardProps {
@@ -36,9 +36,10 @@ export function Board({ filtros, versao, onRecarregar }: BoardProps) {
 
   useEffect(() => {
     let ativo = true; // descarta resposta de uma busca ja substituida
-    listarTasks(filtros)
-      .then((tasks) => {
-        if (ativo) setResultado({ chave, tipo: "ok", tasks });
+    // As notas abertas alimentam o contador no card da task.
+    Promise.all([listarTasks(filtros), listarNotas(false)])
+      .then(([tasks, notas]) => {
+        if (ativo) setResultado({ chave, tipo: "ok", tasks, notas });
       })
       .catch((erro: unknown) => {
         if (ativo) setResultado({ chave, tipo: "erro", mensagem: mensagemDoErro(erro) });
@@ -58,6 +59,14 @@ export function Board({ filtros, versao, onRecarregar }: BoardProps) {
 
   const carregando = resultado === null || resultado.chave !== chave;
   const tasks = resultado?.tipo === "ok" ? resultado.tasks : [];
+
+  // Notas abertas por task, para o card mostrar o que esta pendente nela.
+  const notasPorTask = new Map<number, Nota[]>();
+  for (const nota of resultado?.tipo === "ok" ? resultado.notas : []) {
+    if (nota.task_id !== null) {
+      notasPorTask.set(nota.task_id, [...(notasPorTask.get(nota.task_id) ?? []), nota]);
+    }
+  }
 
   // Quantas tasks cada uma esta travando, dentro do que foi carregado.
   const travando = new Map<number, number>();
@@ -128,6 +137,7 @@ export function Board({ filtros, versao, onRecarregar }: BoardProps) {
                     key={task.id}
                     task={task}
                     travando={travando.get(task.id) ?? 0}
+                    notas={notasPorTask.get(task.id) ?? []}
                     onAtualizada={substituir}
                     onApagada={remover}
                   />
