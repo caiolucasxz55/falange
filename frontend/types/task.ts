@@ -79,3 +79,20 @@ export function diasDesde(iso: string): number {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.floor(ms / 86_400_000));
 }
+
+/** Registro solto do time: problema, decisao ou duvida. Nao e task. */
+export interface Nota {
+  id: number;
+  texto: string;
+  autor: string | null;
+  /** Task ligada; volta a null se a task for apagada. */
+  task_id: number | null;
+  resolvida: boolean;
+  criada_em: string;
+}
+
+export interface NovaNota {
+  texto: string;
+  autor?: string | null;
+  task_id?: number | null;
+}

@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import ABERTAS, Bloco, Prioridade, Status, Task
+from backend.models import ABERTAS, Bloco, Nota, Prioridade, Status, Task
 
 
 # CASE explicito: a ordem do enum no Postgres nao e a ordem de prioridade.
@@ -163,3 +163,35 @@ async def remover(session: AsyncSession, task_id: int) -> bool:
     await session.delete(task)
     await session.commit()
     return True
+
+
+async def criar_nota(session: AsyncSession, dados: dict) -> Nota:
+    nota = Nota(**dados)
+    session.add(nota)
+    await session.commit()
+    await session.refresh(nota)
+    return nota
+
+
+async def listar_notas(
+    session: AsyncSession,
+    resolvida: Optional[bool] = None,
+    task_id: Optional[int] = None,
+) -> list[Nota]:
+    """Mais recentes primeiro: nota nova e a que interessa."""
+    q = select(Nota).order_by(Nota.criada_em.desc(), Nota.id.desc())
+    if resolvida is not None:
+        q = q.where(Nota.resolvida == resolvida)
+    if task_id is not None:
+        q = q.where(Nota.task_id == task_id)
+    return list((await session.scalars(q)).all())
+
+
+async def resolver_nota(session: AsyncSession, nota_id: int) -> Optional[Nota]:
+    nota = await session.get(Nota, nota_id)
+    if nota is None:
+        return None
+    nota.resolvida = True
+    await session.commit()
+    await session.refresh(nota)
+    return nota

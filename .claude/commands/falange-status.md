@@ -15,6 +15,7 @@ Use SOMENTE tools de leitura do servidor MCP `falange`: `listar_tasks`,
 2. `listar_tasks` (aplique o filtro, se houver).
 3. `verificar_sobrecarga` para cada bloco que tem tasks e para cada
    `responsavel` distinto que aparece na lista.
+4. `listar_notas` com `resolvida: false`.
 
 ## Mostrar
 
@@ -26,7 +27,10 @@ Seja curto. Nesta ordem:
    de C esta em A).
 3. **Sobrecarga**: so o que tiver `sobrecarregado: true`, com
    `tasks_abertas` / `limite`. Se nada estiver, diga isso em uma linha.
-4. **Abertas**: tabela
+4. **Notas abertas**: no maximo 5, mais recentes primeiro, cada uma com o
+   autor e a task ligada, quando houver. Se nao houver nota aberta, diga
+   isso em uma linha.
+5. **Abertas**: tabela
    `#id | titulo | prioridade | estimativa | bloco | status | responsavel | aberta ha`,
    sem as concluidas, da prioridade mais alta para a mais baixa. "aberta ha" e
    o numero de dias desde `criada_em`.

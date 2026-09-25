@@ -1,4 +1,12 @@
-import type { EdicaoTask, FiltrosTask, NovaTask, Status, Task } from "@/types/task";
+import type {
+  EdicaoTask,
+  FiltrosTask,
+  Nota,
+  NovaNota,
+  NovaTask,
+  Status,
+  Task,
+} from "@/types/task";
 
 /**
  * URL do backend Falange. Troque por NEXT_PUBLIC_API_URL no .env.local.
@@ -76,6 +84,22 @@ export function marcarBloqueio(taskId: number, bloqueadaPor: number | null): Pro
     method: "PATCH",
     body: JSON.stringify({ bloqueada_por: bloqueadaPor }),
   });
+}
+
+/** GET /notas */
+export function listarNotas(resolvida?: boolean): Promise<Nota[]> {
+  const busca = resolvida === undefined ? "" : `?resolvida=${resolvida}`;
+  return pedir<Nota[]>(`/notas${busca}`);
+}
+
+/** POST /notas */
+export function registrarNota(nova: NovaNota): Promise<Nota> {
+  return pedir<Nota>("/notas", { method: "POST", body: JSON.stringify(nova) });
+}
+
+/** PATCH /notas/{notaId}/resolver */
+export function resolverNota(notaId: number): Promise<Nota> {
+  return pedir<Nota>(`/notas/${notaId}/resolver`, { method: "PATCH" });
 }
 
 // ---------------------------------------------------------------------------

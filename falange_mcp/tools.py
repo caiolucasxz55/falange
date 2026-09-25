@@ -243,6 +243,44 @@ def verificar_sobrecarga(
 
 
 # --------------------------------------------------------------------------
+# notas do time
+# --------------------------------------------------------------------------
+
+
+def registrar_nota(
+    texto: str, autor: str | None = None, task_id: int | None = None
+) -> dict:
+    """Registra uma nota do time: problema, decisao ou duvida que precisa de
+    mais gente, sem virar task.
+
+    texto entre 5 e 2000 chars. `task_id` liga a nota a uma task existente.
+    """
+    return _pedir(
+        "POST", "/notas", json={"texto": texto, "autor": autor, "task_id": task_id}
+    )
+
+
+def listar_notas(
+    resolvida: bool | None = None, task_id: int | None = None
+) -> list | dict:
+    """Lista as notas, mais recentes primeiro.
+
+    resolvida=False mostra so as abertas; task_id filtra as de uma task.
+    """
+    params = {
+        k: v
+        for k, v in {"resolvida": resolvida, "task_id": task_id}.items()
+        if v is not None
+    }
+    return _pedir("GET", "/notas", params=params or None)
+
+
+def resolver_nota(nota_id: int) -> dict:
+    """Marca a nota como resolvida. Nao apaga: o registro fica no historico."""
+    return _pedir("PATCH", f"/notas/{nota_id}/resolver")
+
+
+# --------------------------------------------------------------------------
 # leitura de arquivo (com raiz permitida)
 # --------------------------------------------------------------------------
 

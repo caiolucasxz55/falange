@@ -21,14 +21,21 @@ resto. Se tudo for alta, nada e.
 
 Comandos prontos:
 
-- `/falange-gerar <arquivo>`: documentacao ou codigo vira tasks. Sugere,
-  valida e so cria depois da aprovacao do usuario.
+- `/falange-gerar <arquivo ou pasta>`: documentacao ou codigo vira tasks.
+  Sugere, valida e so cria depois da aprovacao do usuario.
 - `/falange-nova <descricao>`: uma task a partir de texto livre.
 - `/falange-status [bloco|responsavel]`: panorama, somente leitura.
 
 As tools devolvem `{"erro": "..."}` em vez de falhar: leia a mensagem e
 corrija a chamada. "Backend inacessivel" significa que a stack esta fora:
 `docker compose up -d`.
+
+## Notas: o que nao e task
+
+Pedidos como "anota que...", "registra que...", "deixa uma nota..." viram
+`registrar_nota`, nao task. Nota e problema, decisao ou duvida que precisa
+de mais gente, sem virar task bloqueada so para ser discutida. `listar_notas`
+le e `resolver_nota` fecha, sem apagar.
 
 ## Codigo
 

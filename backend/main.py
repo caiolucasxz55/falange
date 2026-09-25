@@ -18,6 +18,8 @@ from backend.schemas import (
     Bloqueio,
     Carga,
     MudancaStatus,
+    NotaNova,
+    NotaOut,
     TaskEdicao,
     TaskNova,
     TaskOut,
@@ -134,3 +136,32 @@ async def editar_task(
 async def apagar_task(task_id: int, session: AsyncSession = Depends(get_session)):
     if not await crud.remover(session, task_id):
         raise HTTPException(404, f"task {task_id} nao encontrada")
+
+
+# --------------------------------------------------------------------------
+# notas: registro solto do time, sem virar task
+# --------------------------------------------------------------------------
+
+
+@app.post("/notas", response_model=NotaOut, status_code=201)
+async def criar_nota(nova: NotaNova, session: AsyncSession = Depends(get_session)):
+    if nova.task_id is not None and await crud.buscar(session, nova.task_id) is None:
+        raise HTTPException(404, f"task {nova.task_id} nao encontrada")
+    return await crud.criar_nota(session, nova.model_dump())
+
+
+@app.get("/notas", response_model=list[NotaOut])
+async def listar_notas(
+    resolvida: Optional[bool] = None,
+    task_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    return await crud.listar_notas(session, resolvida=resolvida, task_id=task_id)
+
+
+@app.patch("/notas/{nota_id}/resolver", response_model=NotaOut)
+async def resolver_nota(nota_id: int, session: AsyncSession = Depends(get_session)):
+    nota = await crud.resolver_nota(session, nota_id)
+    if nota is None:
+        raise HTTPException(404, f"nota {nota_id} nao encontrada")
+    return nota

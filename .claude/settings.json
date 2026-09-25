@@ -9,7 +9,10 @@
       "mcp__falange__criar_task",
       "mcp__falange__editar_task",
       "mcp__falange__marcar_bloqueio",
-      "mcp__falange__mudar_status"
+      "mcp__falange__mudar_status",
+      "mcp__falange__registrar_nota",
+      "mcp__falange__listar_notas",
+      "mcp__falange__resolver_nota"
     ],
     "ask": [
       "mcp__falange__apagar_task"

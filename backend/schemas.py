@@ -61,3 +61,20 @@ class Carga(BaseModel):
     tasks_abertas: int
     limite: int
     sobrecarregado: bool
+
+
+class NotaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    texto: str
+    autor: Optional[str] = None
+    task_id: Optional[int] = None
+    resolvida: bool
+    criada_em: datetime
+
+
+class NotaNova(BaseModel):
+    texto: str = Field(min_length=5, max_length=2000)
+    autor: Optional[str] = Field(default=None, max_length=80)
+    task_id: Optional[int] = None

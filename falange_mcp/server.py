@@ -20,6 +20,9 @@ TOOLS = (
     tools.verificar_sobrecarga,
     tools.gerar_tasks_a_partir_de_arquivo,
     tools.validar_task,
+    tools.registrar_nota,
+    tools.listar_notas,
+    tools.resolver_nota,
 )
 
 

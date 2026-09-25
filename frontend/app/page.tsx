@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import { Board } from "@/components/Board";
 import { Filtros } from "@/components/Filtros";
+import { PainelNotas } from "@/components/PainelNotas";
 import { TaskForm } from "@/components/TaskForm";
 import { API_URL } from "@/lib/api";
 import type { FiltrosTask } from "@/types/task";
@@ -29,6 +30,7 @@ export default function Home() {
       <div className="grid gap-6 md:grid-cols-[20rem_1fr]">
         <aside>
           <TaskForm onCriada={recarregar} />
+          <PainelNotas />
         </aside>
         <div>
           <Filtros filtros={filtros} onMudar={setFiltros} />
