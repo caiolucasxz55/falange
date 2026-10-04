@@ -11,7 +11,9 @@ from backend.models import (
     Origem,
     OrigemPreferencia,
     Prioridade,
+    NivelAutonomia,
     Status,
+    TipoAcao,
     TipoDecisao,
 )
 
@@ -154,3 +156,7 @@ class PreferenciaNova(BaseModel):
 
 class PreferenciaEdicao(BaseModel):
     ativa: bool
+
+
+class AutonomiaEdicao(BaseModel):
+    nivel: NivelAutonomia

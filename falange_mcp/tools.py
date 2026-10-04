@@ -17,11 +17,13 @@ from falange_mcp.config import settings
 from falange_mcp.template import (
     BLOCOS,
     ESTIMATIVAS,
+    NIVEIS_AUTONOMIA,
     ORIGENS_PREFERENCIA,
     PRIORIDADES,
     STATUS,
-    TIPOS_DECISAO,
     TEMPLATE_CONTRATO,
+    TIPOS_ACAO,
+    TIPOS_DECISAO,
     normalizar,
     validar_pre_task,
 )
@@ -394,6 +396,38 @@ def confirmar_preferencia(preferencia_id: int) -> dict:
 def desativar_preferencia(preferencia_id: int) -> dict:
     """Desliga uma preferencia. Pode ser feito a qualquer momento."""
     return _pedir("PATCH", f"/preferencias/{preferencia_id}", json={"ativa": False})
+
+
+def ver_autonomia() -> dict:
+    """Quanto voce pode fazer sozinho, por tipo de acao.
+
+    `nivel`: perguntar (pergunte a cada caso), confirmar_em_lote (faca tudo e
+    mostre um resumo para aprovar ou desfazer) ou automatico (faca e reporte
+    no fim). Consulte ANTES de cada acao dos quatro tipos.
+
+    `pode` diz se o historico ja permite subir um degrau. Mesmo com true, a
+    promocao so acontece com um sim explicito do dev: ofereca no fim da
+    tarefa, uma vez, citando o `motivo`.
+
+    Apagar task ou nota nao esta aqui: acao destrutiva nunca fica automatica.
+    """
+    return _pedir("GET", "/autonomia")
+
+
+def definir_autonomia(tipo_acao: str, nivel: str) -> dict:
+    """Muda o nivel de autonomia de uma acao.
+
+    SUBIR so com pedido ou confirmacao explicita do dev. DESCER voce pode
+    sugerir a qualquer momento, e o backend desce sozinho quando o humano
+    discorda de algo feito no automatico.
+    """
+    for erro in (
+        _checar(tipo_acao, TIPOS_ACAO, "tipo_acao"),
+        _checar(nivel, NIVEIS_AUTONOMIA, "nivel"),
+    ):
+        if erro:
+            return {"erro": erro}
+    return _pedir("PATCH", f"/autonomia/{tipo_acao}", json={"nivel": nivel})
 
 
 def ver_calibracao() -> dict:

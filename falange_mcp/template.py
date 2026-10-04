@@ -19,6 +19,11 @@ TIPOS_DECISAO = (
     "proxima_task", "prioridade", "estimativa", "quebrar_task", "pre_task",
 )
 ORIGENS_PREFERENCIA = ("explicita", "inferida")
+TIPOS_ACAO = (
+    "definir_prioridade", "definir_estimativa", "marcar_bloqueio",
+    "criar_pre_tasks_aprovadas",
+)
+NIVEIS_AUTONOMIA = ("perguntar", "confirmar_em_lote", "automatico")
 
 _ORDEM = {e: i for i, e in enumerate(ESTIMATIVAS)}
 

@@ -12,7 +12,9 @@ dev.
 ## 1. Coletar
 
 1. `ver_configuracao` - guarde `perguntas_ativas`.
-2. `sugerir_proximas` com `responsavel` (se veio) e `limite: 5`.
+2. `ver_perfil` - respeite as `preferencias_ativas`.
+3. `ver_autonomia` - o nivel de `definir_prioridade` manda no passo 4.
+4. `sugerir_proximas` com `responsavel` (se veio) e `limite: 5`.
 
 Se vier `erro`, mostre e pare. Se `sugestoes` estiver vazia, diga que nao ha
 task livre (provavelmente tudo bloqueado ou concluido) e mostre os `alertas`.
@@ -46,6 +48,21 @@ caminho, mais "nenhum, so queria ver". **Termine a sua vez e espere.**
 que seguiu sozinho porque as perguntas estao desligadas, e qual foi o
 criterio.
 
+## Autonomia: consulte antes de agir
+
+Chame `ver_autonomia` antes de definir prioridade, definir estimativa, marcar
+bloqueio ou criar as pre-tasks aprovadas. O `nivel` da acao manda:
+
+- `perguntar`: pergunte a cada caso (o padrao);
+- `confirmar_em_lote`: faca tudo e mostre UM resumo no fim, para o dev
+  aprovar ou mandar desfazer;
+- `automatico`: faca e so reporte o que fez.
+
+Se `pode` for true, ofereca a promocao UMA vez, no fim da tarefa, citando o
+`motivo` ("as ultimas 5 estimativas foram aceitas sem ajuste"). So chame
+`definir_autonomia` para SUBIR com um sim explicito. Para descer, pode
+sugerir quando quiser.
+
 ## 4. Executar so o escolhido
 
 - "pegar/terminar a task X" -> `mudar_status` para `em_andamento`.
@@ -56,6 +73,11 @@ criterio.
   mexer, se nao estiver obvio.
 
 Nao execute os caminhos descartados. Nao crie task nova aqui.
+
+Depois de executar, chame `registrar_decisao` com `tipo: proxima_task`, o
+`rotulo` do caminho escolhido ("destravar", "prioritaria", "terminar") e
+`aceita: true`. Registre tambem os caminhos recusados, com `aceita: false` e
+o motivo, quando o dev disser.
 
 ## 5. Fechar
 

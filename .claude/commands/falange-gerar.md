@@ -37,6 +37,21 @@ Escreva as pre-tasks seguindo o `template`.
 - Se uma task so pode comecar depois de outra, anote a dependencia pelo
   numero da lista (ex.: "3 depende de 1").
 
+## Autonomia: consulte antes de agir
+
+Chame `ver_autonomia` antes de definir prioridade, definir estimativa, marcar
+bloqueio ou criar as pre-tasks aprovadas. O `nivel` da acao manda:
+
+- `perguntar`: pergunte a cada caso (o padrao);
+- `confirmar_em_lote`: faca tudo e mostre UM resumo no fim, para o dev
+  aprovar ou mandar desfazer;
+- `automatico`: faca e so reporte o que fez.
+
+Se `pode` for true, ofereca a promocao UMA vez, no fim da tarefa, citando o
+`motivo` ("as ultimas 5 estimativas foram aceitas sem ajuste"). So chame
+`definir_autonomia` para SUBIR com um sim explicito. Para descer, pode
+sugerir quando quiser.
+
 ## Estimar com os dados do time, nao com o chute de sempre
 
 Chame `ver_calibracao` antes de redigir. Ela diz o que cada classe valeu na

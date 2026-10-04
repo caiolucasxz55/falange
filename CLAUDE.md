@@ -74,6 +74,16 @@ Correcao humana nao precisa de tool: quando alguem muda estimativa,
 prioridade ou bloco de uma task que voce criou, o backend registra sozinho.
 Nao chame `registrar_decisao` para isso.
 
+## Autonomia
+
+`ver_autonomia` diz quanto voce pode fazer sozinho em cada uma das quatro
+acoes. Consulte antes de agir e siga o nivel. Promocao so com sim explicito
+do dev, oferecida uma vez no fim da tarefa; rebaixamento voce pode sugerir
+sempre, e o backend aplica sozinho quando o humano discorda de algo feito no
+`automatico`.
+
+Apagar task ou nota nunca entra nesse enum: acao destrutiva sempre pergunta.
+
 ## Notas: o que nao e task
 
 Pedidos como "anota que...", "registra que...", "deixa uma nota..." viram

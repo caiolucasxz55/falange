@@ -56,6 +56,28 @@ class TipoDecisao(str, PyEnum):
     ajuste_humano = "ajuste_humano"
 
 
+class TipoAcao(str, PyEnum):
+    """Acoes que podem ganhar autonomia.
+
+    Apagar task e apagar nota NAO estao aqui de proposito: acao destrutiva
+    nunca fica automatica, por melhor que seja o historico.
+    """
+
+    definir_prioridade = "definir_prioridade"
+    definir_estimativa = "definir_estimativa"
+    marcar_bloqueio = "marcar_bloqueio"
+    criar_pre_tasks_aprovadas = "criar_pre_tasks_aprovadas"
+
+
+class NivelAutonomia(str, PyEnum):
+    # Pergunta a cada caso.
+    perguntar = "perguntar"
+    # Faz tudo e mostra um resumo para aprovar ou desfazer.
+    confirmar_em_lote = "confirmar_em_lote"
+    # Faz e so reporta no fim.
+    automatico = "automatico"
+
+
 class OrigemPreferencia(str, PyEnum):
     explicita = "explicita"
     inferida = "inferida"
@@ -202,5 +224,26 @@ class Preferencia(Base):
     )
     ativa: Mapped[bool] = mapped_column(Boolean, default=False)
     criada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Autonomia(Base):
+    """Quanto a IA pode fazer sozinha, por tipo de acao.
+
+    Sobe so com sim explicito do humano; desce sozinho na primeira
+    discordancia (ver backend/autonomia.py).
+    """
+
+    __tablename__ = "autonomia"
+
+    tipo_acao: Mapped[TipoAcao] = mapped_column(
+        Enum(TipoAcao, name="tipo_acao"), primary_key=True
+    )
+    nivel: Mapped[NivelAutonomia] = mapped_column(
+        Enum(NivelAutonomia, name="nivel_autonomia"),
+        default=NivelAutonomia.perguntar,
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -19,6 +19,7 @@ Backend FastAPI sobre Postgres, exposto a uma IA por dois transportes MCP.
           +-- priorizacao.py   <- modulo puro: recebe dados, devolve dados
           +-- calibracao.py    <- modulo puro: estimado x duracao real
           +-- perfil.py        <- modulo puro: decisoes viram padroes
+          +-- autonomia.py     <- modulo puro: promocao e rebaixamento
 
 Regra do calculo: o que e juizo (ranking, limiares, alertas) mora em modulo
 puro no backend, sem sessao e sem HTTP. A IA redige e conversa; o codigo
@@ -105,6 +106,8 @@ banco nem por engano.
 | `sugerir_proximas` | nao (ranking explicado) |
 | `ver_calibracao` | nao (estimado x real) |
 | `ver_perfil` | nao (o que o time ensinou) |
+| `ver_autonomia` | nao (niveis e promocao) |
+| `definir_autonomia` | sim (muda o nivel) |
 | `registrar_decisao` | sim (memoria da escolha) |
 | `registrar_preferencia` | sim (inferida nasce inativa) |
 | `listar_preferencias` | nao |
@@ -149,6 +152,13 @@ Correcao humana entra sozinha: o MCP manda o header `X-Falange-Fonte: mcp` em
 toda chamada, a tela nao manda. Quando uma task com `origem = ia` tem
 estimativa, prioridade ou bloco alterados por uma chamada sem o header, o crud
 grava uma `decisao` do tipo `ajuste_humano` com antes e depois.
+
+`ver_autonomia` traz o nivel de cada acao (`perguntar`, `confirmar_em_lote`,
+`automatico`) e se o historico ja permite subir: `JANELA` decisoes seguidas,
+todas aceitas. Subir exige sim explicito do humano; descer e automatico
+quando alguem discorda de algo feito no `automatico`. A assimetria e
+proposital, e a tela so rebaixa. Apagar task ou nota nao esta no enum de
+acoes: destrutivo nunca fica automatico.
 
 `perguntas_ativas` (em `GET /configuracao`) liga e desliga as perguntas de
 multipla escolha da IA. Desligado, ela decide sozinha e diz o criterio. Da

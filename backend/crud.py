@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models import (
     ABERTAS,
+    Autonomia,
     Bloco,
     Configuracao,
     Decisao,
@@ -14,9 +15,12 @@ from backend.models import (
     Preferencia,
     Prioridade,
     Status,
+    NivelAutonomia,
     Task,
+    TipoAcao,
     TipoDecisao,
 )
+from backend.autonomia import ACOES, NIVEIS, acoes_a_rebaixar
 from backend.perfil import CAMPOS_AJUSTAVEIS, deve_registrar_ajuste
 
 
@@ -179,16 +183,16 @@ async def editar(
         depois = {campo: _valor(getattr(task, campo)) for campo in antes}
         alterados = {c: v for c, v in depois.items() if v != antes[c]}
         if alterados:
-            session.add(
-                Decisao(
-                    tipo=TipoDecisao.ajuste_humano,
-                    sugerido={c: antes[c] for c in alterados},
-                    escolhido=alterados,
-                    # O humano desfez a escolha da IA: nao foi aceita.
-                    aceita=False,
-                    task_id=task_id,
-                )
-            )
+            registro = {
+                "tipo": TipoDecisao.ajuste_humano,
+                "sugerido": {c: antes[c] for c in alterados},
+                "escolhido": alterados,
+                # O humano desfez a escolha da IA: nao foi aceita.
+                "aceita": False,
+                "task_id": task_id,
+            }
+            session.add(Decisao(**registro))
+            await _rebaixar_se_preciso(session, registro)
 
     await session.commit()
     await session.refresh(task)
@@ -293,9 +297,26 @@ def _valor(bruto):
 async def criar_decisao(session: AsyncSession, dados: dict) -> Decisao:
     decisao = Decisao(**dados)
     session.add(decisao)
+    await _rebaixar_se_preciso(session, dados)
     await session.commit()
     await session.refresh(decisao)
     return decisao
+
+
+async def _rebaixar_se_preciso(session: AsyncSession, decisao: dict) -> None:
+    """Discordar de algo feito no automatico tira a autonomia na hora.
+
+    Nao commita: entra no mesmo commit de quem registrou a decisao.
+    """
+    niveis = {
+        linha.tipo_acao.value: linha.nivel.value
+        for linha in (await session.scalars(select(Autonomia))).all()
+    }
+    for acao, novo in acoes_a_rebaixar(decisao, niveis).items():
+        linha = await session.get(Autonomia, TipoAcao(acao))
+        if linha is not None:
+            linha.nivel = NivelAutonomia(novo)
+            linha.atualizado_em = func.now()
 
 
 async def listar_decisoes(
@@ -335,3 +356,23 @@ async def definir_preferencia_ativa(
     await session.commit()
     await session.refresh(preferencia)
     return preferencia
+
+
+async def ler_autonomia(session: AsyncSession) -> dict[str, str]:
+    """Nivel de cada acao, com o padrao preenchendo o que nunca foi gravado."""
+    linhas = (await session.scalars(select(Autonomia))).all()
+    gravados = {linha.tipo_acao.value: linha.nivel.value for linha in linhas}
+    return {acao: gravados.get(acao, NIVEIS[0]) for acao in ACOES}
+
+
+async def definir_autonomia(
+    session: AsyncSession, tipo_acao: TipoAcao, nivel: NivelAutonomia
+) -> dict[str, str]:
+    linha = await session.get(Autonomia, tipo_acao)
+    if linha is None:
+        session.add(Autonomia(tipo_acao=tipo_acao, nivel=nivel))
+    else:
+        linha.nivel = nivel
+        linha.atualizado_em = func.now()
+    await session.commit()
+    return await ler_autonomia(session)

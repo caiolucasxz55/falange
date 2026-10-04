@@ -22,6 +22,8 @@ TOOLS = (
     tools.validar_task,
     tools.sugerir_proximas,
     tools.ver_calibracao,
+    tools.ver_autonomia,
+    tools.definir_autonomia,
     tools.registrar_decisao,
     tools.ver_perfil,
     tools.registrar_preferencia,

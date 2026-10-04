@@ -22,12 +22,14 @@
       "mcp__falange__registrar_preferencia",
       "mcp__falange__listar_preferencias",
       "mcp__falange__confirmar_preferencia",
-      "mcp__falange__desativar_preferencia"
+      "mcp__falange__desativar_preferencia",
+      "mcp__falange__ver_autonomia"
     ],
     "ask": [
       "mcp__falange__apagar_task",
       "mcp__falange__apagar_nota",
-      "mcp__falange__definir_configuracao"
+      "mcp__falange__definir_configuracao",
+      "mcp__falange__definir_autonomia"
     ]
   }
 }

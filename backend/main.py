@@ -13,12 +13,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
+from backend.autonomia import DECISAO_POR_ACAO
+from backend.autonomia import montar as montar_autonomia
 from backend.calibracao import calibrar
 from backend.perfil import montar as montar_perfil
 from backend.priorizacao import ranquear
 from backend.db import get_session
-from backend.models import Bloco, OrigemPreferencia, Prioridade, Status, TipoDecisao
+from backend.models import (
+    Bloco,
+    NivelAutonomia,
+    OrigemPreferencia,
+    Prioridade,
+    Status,
+    TipoAcao,
+    TipoDecisao,
+)
 from backend.schemas import (
+    AutonomiaEdicao,
     Bloqueio,
     Carga,
     DecisaoNova,
@@ -358,3 +369,32 @@ async def perfil(session: AsyncSession = Depends(get_session)):
     concluidas = await crud.listar(session, status=Status.concluida)
     calibracao = calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])
     return montar_perfil(decisoes, preferencias, calibracao)
+
+
+# --------------------------------------------------------------------------
+# autonomia: quanto a IA pode fazer sozinha
+# --------------------------------------------------------------------------
+
+
+@app.get("/autonomia")
+async def ver_autonomia(session: AsyncSession = Depends(get_session)):
+    """Nivel de cada acao e se o historico ja permite promover."""
+    niveis = await crud.ler_autonomia(session)
+    decisoes_por_tipo: dict[str, list[dict]] = {}
+    for tipo in {t for t in DECISAO_POR_ACAO.values() if t}:
+        decisoes_por_tipo[tipo] = [
+            DecisaoOut.model_validate(d).model_dump()
+            for d in await crud.listar_decisoes(session, tipo=TipoDecisao(tipo))
+        ]
+    return montar_autonomia(niveis, decisoes_por_tipo)
+
+
+@app.patch("/autonomia/{tipo_acao}")
+async def definir_autonomia(
+    tipo_acao: TipoAcao,
+    body: AutonomiaEdicao,
+    session: AsyncSession = Depends(get_session),
+):
+    """Muda o nivel de uma acao. Subir e decisao do humano, nunca da IA."""
+    niveis = await crud.definir_autonomia(session, tipo_acao, body.nivel)
+    return {"acoes": niveis}

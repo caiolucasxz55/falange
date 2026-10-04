@@ -176,3 +176,19 @@ export interface Perfil {
   preferencias_ativas: Preferencia[];
   padroes_candidatos: PadraoCandidato[];
 }
+
+export type NivelAutonomia = "perguntar" | "confirmar_em_lote" | "automatico";
+
+export interface AcaoAutonoma {
+  nivel: NivelAutonomia;
+  pode: boolean;
+  proximo_nivel: NivelAutonomia | null;
+  aceitas_seguidas: number;
+  motivo: string;
+}
+
+export interface Autonomia {
+  acoes: Record<string, AcaoAutonoma>;
+  janela: number;
+  niveis: NivelAutonomia[];
+}

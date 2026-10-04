@@ -1,10 +1,12 @@
 import type {
+  Autonomia,
   Configuracao,
   EdicaoNota,
   EdicaoTask,
   FiltrosTask,
   Nota,
   NovaNota,
+  NivelAutonomia,
   NovaTask,
   Perfil,
   Preferencia,
@@ -153,6 +155,22 @@ export function definirPreferencia(id: number, ativa: boolean): Promise<Preferen
   return pedir<Preferencia>(`/preferencias/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ ativa }),
+  });
+}
+
+/** GET /autonomia */
+export function verAutonomia(): Promise<Autonomia> {
+  return pedir<Autonomia>("/autonomia");
+}
+
+/** PATCH /autonomia/{tipo}. A tela so rebaixa; subir e pela conversa. */
+export function definirAutonomia(
+  tipoAcao: string,
+  nivel: NivelAutonomia,
+): Promise<{ acoes: Record<string, NivelAutonomia> }> {
+  return pedir(`/autonomia/${tipoAcao}`, {
+    method: "PATCH",
+    body: JSON.stringify({ nivel }),
   });
 }
 
