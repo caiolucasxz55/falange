@@ -17,6 +17,8 @@ Backend FastAPI sobre Postgres, exposto a uma IA por dois transportes MCP.
         backend/ (FastAPI) -> Postgres
           |
           +-- priorizacao.py   <- modulo puro: recebe dados, devolve dados
+          +-- calibracao.py    <- modulo puro: estimado x duracao real
+          +-- perfil.py        <- modulo puro: decisoes viram padroes
 
 Regra do calculo: o que e juizo (ranking, limiares, alertas) mora em modulo
 puro no backend, sem sessao e sem HTTP. A IA redige e conversa; o codigo
@@ -101,6 +103,13 @@ banco nem por engano.
 | `gerar_tasks_a_partir_de_arquivo` | **nao** - aceita arquivo ou pasta; so sugere, para voce revisar |
 | `validar_task` | nao |
 | `sugerir_proximas` | nao (ranking explicado) |
+| `ver_calibracao` | nao (estimado x real) |
+| `ver_perfil` | nao (o que o time ensinou) |
+| `registrar_decisao` | sim (memoria da escolha) |
+| `registrar_preferencia` | sim (inferida nasce inativa) |
+| `listar_preferencias` | nao |
+| `confirmar_preferencia` | sim (ativa) |
+| `desativar_preferencia` | sim (desliga) |
 | `ver_configuracao` | nao |
 | `definir_configuracao` | sim (liga/desliga as perguntas) |
 | `registrar_nota` | sim (nota, nao task) |
@@ -122,6 +131,24 @@ qualquer caixa: "Seguranca" e "seguranca" sao o mesmo bloco.
 inversao de prioridade, inflacao de "alta" e trabalho parado. O calculo e um
 modulo puro, entao a tela usa a mesma regra por `GET /priorizacao`, sem IA.
 Todos os pesos estao no dict `PESOS`, no topo do modulo.
+
+`ver_calibracao` compara a estimativa com a duracao real (`iniciada_em` ate
+`concluida_em`, em dias corridos) das tasks concluidas, por classe e por
+bloco. O veredito e `coerente`, `superestimada`, `subestimada` ou
+`sem_dados` (amostra menor que `AMOSTRA_MINIMA`). O `validar_task` devolve
+isso em `aviso_calibracao`, que informa e NAO reprova a task. As faixas estao
+em `FAIXAS`, no topo de `backend/calibracao.py`.
+
+`ver_perfil` junta a calibracao, a taxa de aceitacao por tipo de decisao, as
+correcoes humanas mais comuns, as preferencias ativas e os
+`padroes_candidatos` — habitos com pelo menos `MINIMO_OCORRENCIAS` registros e
+`CONSISTENCIA_MINIMA` de consistencia que ainda nao viraram regra. Os dois
+limiares estao no topo de `backend/perfil.py`.
+
+Correcao humana entra sozinha: o MCP manda o header `X-Falange-Fonte: mcp` em
+toda chamada, a tela nao manda. Quando uma task com `origem = ia` tem
+estimativa, prioridade ou bloco alterados por uma chamada sem o header, o crud
+grava uma `decisao` do tipo `ajuste_humano` com antes e depois.
 
 `perguntas_ativas` (em `GET /configuracao`) liga e desliga as perguntas de
 multipla escolha da IA. Desligado, ela decide sozinha e diz o criterio. Da

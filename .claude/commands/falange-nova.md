@@ -49,6 +49,23 @@ resposta, nao pergunte.
 Se o pedido mencionar outra task ("depois da #3", "travada pela #5"), anote
 para o passo 3.
 
+## Estimar com os dados do time, nao com o chute de sempre
+
+Chame `ver_calibracao` antes de redigir. Ela diz o que cada classe valeu na
+pratica (`veredito`: coerente, superestimada, subestimada, sem_dados) no
+projeto e por bloco. Prefira o veredito do BLOCO quando ele tiver amostra.
+
+- `subestimada`: a classe costuma estourar a faixa; suba a estimativa.
+- `superestimada`: costuma sair antes; desca.
+- `sem_dados`: amostra pequena demais, estime como faria normalmente.
+
+Quando a calibracao te fizer escolher diferente do que voce escolheria
+sozinho, diga isso em uma linha, com o `n`. Ex.: "coloquei M e nao P porque
+em infra P tem mediana de 3 dias (n=6)".
+
+O `validar_task` tambem devolve `aviso_calibracao`. Ele NAO reprova a task:
+e informacao para voce decidir, e vale mostrar ao dev quando aparecer.
+
 ## 2. Validar
 
 Chame `validar_task`. Ele e a regra final: se ele discordar das regras

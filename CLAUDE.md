@@ -15,6 +15,11 @@ a #6").
 Antes de criar qualquer task, passe por `validar_task` e corrija o conteudo
 ate aprovar.
 
+Antes de estimar, chame `ver_calibracao`: ela diz o que cada classe valeu na
+pratica neste projeto e em cada bloco. Prefira o veredito do bloco quando
+houver amostra, e diga em uma linha quando a calibracao mudar a sua escolha.
+O `aviso_calibracao` do `validar_task` informa, nao reprova.
+
 Prioridade: `alta` so quando a task trava outra ou e pre-requisito de uma
 entrega proxima; `baixa` quando pode esperar sem travar ninguem; `media` no
 resto. Se tudo for alta, nada e.
@@ -45,6 +50,29 @@ Comandos prontos:
 As tools devolvem `{"erro": "..."}` em vez de falhar: leia a mensagem e
 corrija a chamada. "Backend inacessivel" significa que a stack esta fora:
 `docker compose up -d`.
+
+## O Falange aprende; voce nao
+
+Entre sessoes voce nao lembra de nada. O banco lembra. Por isso:
+
+**Antes de planejar** (`/falange-gerar`, `/falange-nova`, `/falange-proximo`),
+chame `ver_perfil` e **respeite as `preferencias_ativas`** como regra do time,
+nao como sugestao.
+
+**Depois de toda escolha feita com opcoes**, chame `registrar_decisao` —
+tanto a aceita quanto a recusada, com o `motivo` quando o dev disser. Use um
+`escolhido["rotulo"]` curto e estavel ("destravar", "prioritaria",
+"quebrar"): e por ele que o padrao e detectado.
+
+**Padroes candidatos:** quando `ver_perfil` trouxer `padroes_candidatos`,
+pergunte UMA vez por sessao, no fim da tarefa, se aquilo deve virar regra
+("percebi que voces X; posso assumir isso daqui pra frente?"). Com um sim
+explicito, `registrar_preferencia(origem="inferida")` e depois
+`confirmar_preferencia`. Sem sim explicito, nao registre e nao insista.
+
+Correcao humana nao precisa de tool: quando alguem muda estimativa,
+prioridade ou bloco de uma task que voce criou, o backend registra sozinho.
+Nao chame `registrar_decisao` para isso.
 
 ## Notas: o que nao e task
 

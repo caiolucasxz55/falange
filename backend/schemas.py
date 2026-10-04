@@ -5,7 +5,15 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.models import Bloco, Estimativa, Prioridade, Status
+from backend.models import (
+    Bloco,
+    Estimativa,
+    Origem,
+    OrigemPreferencia,
+    Prioridade,
+    Status,
+    TipoDecisao,
+)
 
 
 class TaskOut(BaseModel):
@@ -24,6 +32,7 @@ class TaskOut(BaseModel):
     atualizada_em: datetime
     iniciada_em: Optional[datetime] = None
     concluida_em: Optional[datetime] = None
+    origem: Origem
 
 
 class TaskNova(BaseModel):
@@ -33,6 +42,8 @@ class TaskNova(BaseModel):
     bloco: Bloco
     prioridade: Prioridade = Prioridade.media
     responsavel: Optional[str] = Field(default=None, max_length=80)
+    # So o MCP manda `ia`; pela tela a task nasce humana.
+    origem: Origem = Origem.humano
 
 
 class TaskEdicao(BaseModel):
@@ -100,3 +111,46 @@ class ConfiguracaoOut(BaseModel):
 
 class ConfiguracaoEdicao(BaseModel):
     perguntas_ativas: Optional[bool] = None
+
+
+class DecisaoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tipo: TipoDecisao
+    sugerido: dict
+    escolhido: dict
+    aceita: bool
+    motivo: Optional[str] = None
+    responsavel: Optional[str] = None
+    task_id: Optional[int] = None
+    criada_em: datetime
+
+
+class DecisaoNova(BaseModel):
+    tipo: TipoDecisao
+    sugerido: dict = Field(default_factory=dict)
+    escolhido: dict = Field(default_factory=dict)
+    aceita: bool
+    motivo: Optional[str] = Field(default=None, max_length=500)
+    responsavel: Optional[str] = Field(default=None, max_length=80)
+    task_id: Optional[int] = None
+
+
+class PreferenciaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    descricao: str
+    origem: OrigemPreferencia
+    ativa: bool
+    criada_em: datetime
+
+
+class PreferenciaNova(BaseModel):
+    descricao: str = Field(min_length=5, max_length=200)
+    origem: OrigemPreferencia
+
+
+class PreferenciaEdicao(BaseModel):
+    ativa: bool

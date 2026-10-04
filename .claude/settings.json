@@ -15,7 +15,14 @@
       "mcp__falange__resolver_nota",
       "mcp__falange__editar_nota",
       "mcp__falange__sugerir_proximas",
-      "mcp__falange__ver_configuracao"
+      "mcp__falange__ver_configuracao",
+      "mcp__falange__ver_calibracao",
+      "mcp__falange__registrar_decisao",
+      "mcp__falange__ver_perfil",
+      "mcp__falange__registrar_preferencia",
+      "mcp__falange__listar_preferencias",
+      "mcp__falange__confirmar_preferencia",
+      "mcp__falange__desativar_preferencia"
     ],
     "ask": [
       "mcp__falange__apagar_task",

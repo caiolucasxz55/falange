@@ -8,17 +8,24 @@ direto com o banco -- uma fonte de verdade so.
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
+from backend.calibracao import calibrar
+from backend.perfil import montar as montar_perfil
 from backend.priorizacao import ranquear
 from backend.db import get_session
-from backend.models import Bloco, Prioridade, Status
+from backend.models import Bloco, OrigemPreferencia, Prioridade, Status, TipoDecisao
 from backend.schemas import (
     Bloqueio,
     Carga,
+    DecisaoNova,
+    DecisaoOut,
+    PreferenciaEdicao,
+    PreferenciaNova,
+    PreferenciaOut,
     ConfiguracaoEdicao,
     ConfiguracaoOut,
     MudancaStatus,
@@ -126,12 +133,17 @@ async def mudar_status(
 
 @app.patch("/tasks/{task_id}", response_model=TaskOut)
 async def editar_task(
-    task_id: int, body: TaskEdicao, session: AsyncSession = Depends(get_session)
+    task_id: int,
+    body: TaskEdicao,
+    session: AsyncSession = Depends(get_session),
+    # O MCP se identifica; a tela nao manda nada. E assim que o backend
+    # sabe se quem corrigiu a task foi a IA ou um humano.
+    x_falange_fonte: Optional[str] = Header(default=None),
 ):
     campos = body.model_dump(exclude_unset=True)
     if not campos:
         raise HTTPException(400, "nenhum campo para alterar")
-    task = await crud.editar(session, task_id, campos)
+    task = await crud.editar(session, task_id, campos, fonte=x_falange_fonte)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
     return task
@@ -238,6 +250,16 @@ async def priorizacao(
     return saida
 
 
+@app.get("/calibracao")
+async def calibracao(session: AsyncSession = Depends(get_session)):
+    """Compara a estimativa com a duracao real das tasks ja concluidas.
+
+    So entram tasks com os dois marcos de tempo; o resto nao da para medir.
+    """
+    concluidas = await crud.listar(session, status=Status.concluida)
+    return calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])
+
+
 # --------------------------------------------------------------------------
 # configuracao: comportamento da plataforma
 # --------------------------------------------------------------------------
@@ -266,3 +288,73 @@ async def definir_configuracao(
             session, chave, "true" if valor else "false"
         )
     return _para_saida(bruta)
+
+
+# --------------------------------------------------------------------------
+# aprendizado: decisoes, preferencias e perfil
+# --------------------------------------------------------------------------
+
+
+@app.post("/decisoes", response_model=DecisaoOut, status_code=201)
+async def registrar_decisao(
+    nova: DecisaoNova, session: AsyncSession = Depends(get_session)
+):
+    if nova.task_id is not None and await crud.buscar(session, nova.task_id) is None:
+        raise HTTPException(404, f"task {nova.task_id} nao encontrada")
+    return await crud.criar_decisao(session, nova.model_dump())
+
+
+@app.get("/decisoes", response_model=list[DecisaoOut])
+async def listar_decisoes(
+    tipo: Optional[TipoDecisao] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    return await crud.listar_decisoes(session, tipo=tipo)
+
+
+@app.post("/preferencias", response_model=PreferenciaOut, status_code=201)
+async def registrar_preferencia(
+    nova: PreferenciaNova, session: AsyncSession = Depends(get_session)
+):
+    """Explicita nasce ativa; inferida nasce inativa e espera confirmacao."""
+    dados = nova.model_dump()
+    dados["ativa"] = nova.origem is OrigemPreferencia.explicita
+    return await crud.criar_preferencia(session, dados)
+
+
+@app.get("/preferencias", response_model=list[PreferenciaOut])
+async def listar_preferencias(
+    ativa: Optional[bool] = None, session: AsyncSession = Depends(get_session)
+):
+    return await crud.listar_preferencias(session, ativa=ativa)
+
+
+@app.patch("/preferencias/{preferencia_id}", response_model=PreferenciaOut)
+async def definir_preferencia(
+    preferencia_id: int,
+    body: PreferenciaEdicao,
+    session: AsyncSession = Depends(get_session),
+):
+    """Ativa (confirmar) ou desativa. Desativar e sempre permitido."""
+    preferencia = await crud.definir_preferencia_ativa(
+        session, preferencia_id, body.ativa
+    )
+    if preferencia is None:
+        raise HTTPException(404, f"preferencia {preferencia_id} nao encontrada")
+    return preferencia
+
+
+@app.get("/perfil")
+async def perfil(session: AsyncSession = Depends(get_session)):
+    """O que o Falange aprendeu: calibracao, aceitacao, correcoes e padroes."""
+    decisoes = [
+        DecisaoOut.model_validate(d).model_dump()
+        for d in await crud.listar_decisoes(session)
+    ]
+    preferencias = [
+        PreferenciaOut.model_validate(p).model_dump()
+        for p in await crud.listar_preferencias(session)
+    ]
+    concluidas = await crud.listar(session, status=Status.concluida)
+    calibracao = calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])
+    return montar_perfil(decisoes, preferencias, calibracao)

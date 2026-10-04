@@ -9,11 +9,15 @@ from backend.models import (
     ABERTAS,
     Bloco,
     Configuracao,
+    Decisao,
     Nota,
+    Preferencia,
     Prioridade,
     Status,
     Task,
+    TipoDecisao,
 )
+from backend.perfil import CAMPOS_AJUSTAVEIS, deve_registrar_ajuste
 
 
 # CASE explicito: a ordem do enum no Postgres nao e a ordem de prioridade.
@@ -148,15 +152,44 @@ async def contar_abertas(
 
 
 async def editar(
-    session: AsyncSession, task_id: int, campos: dict
+    session: AsyncSession, task_id: int, campos: dict, fonte: Optional[str] = None
 ) -> Optional[Task]:
-    """Altera apenas os campos presentes em `campos`."""
+    """Altera apenas os campos presentes em `campos`.
+
+    `fonte` vem do header X-Falange-Fonte. Quando um humano (sem o header)
+    corrige um campo de julgamento de uma task escrita pela IA, a correcao
+    vira uma `decisao` do tipo ajuste_humano. Ninguem precisa anotar nada:
+    e assim que o Falange aprende com o que o time desfaz.
+    """
     task = await session.get(Task, task_id)
     if task is None:
         return None
+
+    antes = {
+        campo: _valor(getattr(task, campo))
+        for campo in CAMPOS_AJUSTAVEIS
+        if campo in campos
+    }
+
     for campo, valor in campos.items():
         setattr(task, campo, valor)
     task.atualizada_em = func.now()
+
+    if deve_registrar_ajuste(task.origem, fonte, campos):
+        depois = {campo: _valor(getattr(task, campo)) for campo in antes}
+        alterados = {c: v for c, v in depois.items() if v != antes[c]}
+        if alterados:
+            session.add(
+                Decisao(
+                    tipo=TipoDecisao.ajuste_humano,
+                    sugerido={c: antes[c] for c in alterados},
+                    escolhido=alterados,
+                    # O humano desfez a escolha da IA: nao foi aceita.
+                    aceita=False,
+                    task_id=task_id,
+                )
+            )
+
     await session.commit()
     await session.refresh(task)
     return task
@@ -250,3 +283,55 @@ async def definir_configuracao(
         atual.atualizada_em = func.now()
     await session.commit()
     return await ler_configuracao(session)
+
+
+def _valor(bruto):
+    """Enum vira texto: JSONB nao guarda Enum do SQLAlchemy."""
+    return getattr(bruto, "value", bruto)
+
+
+async def criar_decisao(session: AsyncSession, dados: dict) -> Decisao:
+    decisao = Decisao(**dados)
+    session.add(decisao)
+    await session.commit()
+    await session.refresh(decisao)
+    return decisao
+
+
+async def listar_decisoes(
+    session: AsyncSession, tipo: Optional[TipoDecisao] = None, limite: int = 500
+) -> list[Decisao]:
+    """Mais recentes primeiro: o habito de agora pesa mais que o de um ano."""
+    q = select(Decisao).order_by(Decisao.criada_em.desc(), Decisao.id.desc())
+    if tipo is not None:
+        q = q.where(Decisao.tipo == tipo)
+    return list((await session.scalars(q.limit(limite))).all())
+
+
+async def criar_preferencia(session: AsyncSession, dados: dict) -> Preferencia:
+    preferencia = Preferencia(**dados)
+    session.add(preferencia)
+    await session.commit()
+    await session.refresh(preferencia)
+    return preferencia
+
+
+async def listar_preferencias(
+    session: AsyncSession, ativa: Optional[bool] = None
+) -> list[Preferencia]:
+    q = select(Preferencia).order_by(Preferencia.id)
+    if ativa is not None:
+        q = q.where(Preferencia.ativa == ativa)
+    return list((await session.scalars(q)).all())
+
+
+async def definir_preferencia_ativa(
+    session: AsyncSession, preferencia_id: int, ativa: bool
+) -> Optional[Preferencia]:
+    preferencia = await session.get(Preferencia, preferencia_id)
+    if preferencia is None:
+        return None
+    preferencia.ativa = ativa
+    await session.commit()
+    await session.refresh(preferencia)
+    return preferencia

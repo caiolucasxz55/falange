@@ -14,6 +14,11 @@ ESTIMATIVAS = ("PP", "P", "M", "G")
 BLOCOS = ("frontend", "backend", "infra", "seguranca")
 STATUS = ("aberta", "em_andamento", "concluida")
 PRIORIDADES = ("alta", "media", "baixa")
+# Espelham os enums do backend; o MCP nao importa nada de backend/.
+TIPOS_DECISAO = (
+    "proxima_task", "prioridade", "estimativa", "quebrar_task", "pre_task",
+)
+ORIGENS_PREFERENCIA = ("explicita", "inferida")
 
 _ORDEM = {e: i for i, e in enumerate(ESTIMATIVAS)}
 

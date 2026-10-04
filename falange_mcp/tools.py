@@ -17,8 +17,10 @@ from falange_mcp.config import settings
 from falange_mcp.template import (
     BLOCOS,
     ESTIMATIVAS,
+    ORIGENS_PREFERENCIA,
     PRIORIDADES,
     STATUS,
+    TIPOS_DECISAO,
     TEMPLATE_CONTRATO,
     normalizar,
     validar_pre_task,
@@ -52,6 +54,11 @@ def _erro_422(corpo: dict) -> str:
     return "; ".join(partes) or "payload invalido"
 
 
+# O backend usa isto para saber que quem chamou foi a IA. Sem o header, a
+# alteracao conta como correcao humana e vira aprendizado.
+CABECALHO_FONTE = {"X-Falange-Fonte": "mcp"}
+
+
 def _pedir(metodo: str, caminho: str, **kw):
     """Chama o backend e NUNCA levanta: devolve o json ou {'erro': <frase>}.
 
@@ -59,7 +66,10 @@ def _pedir(metodo: str, caminho: str, **kw):
     nao diz nada para a IA. Um dict com 'erro' ela consegue ler e corrigir.
     """
     try:
-        r = httpx.request(metodo, f"{BACKEND}{caminho}", timeout=10, **kw)
+        cabecalhos = {**CABECALHO_FONTE, **(kw.pop("headers", None) or {})}
+        r = httpx.request(
+            metodo, f"{BACKEND}{caminho}", timeout=10, headers=cabecalhos, **kw
+        )
     except httpx.HTTPError as e:
         return {"erro": f"backend inacessivel em {BACKEND}: {e}"}
 
@@ -138,6 +148,8 @@ def criar_task(
             "bloco": bloco,
             "prioridade": prioridade,
             "responsavel": responsavel,
+            # Marca a autoria para o Falange poder medir a IA depois.
+            "origem": "ia",
         },
     )
 
@@ -303,6 +315,96 @@ def sugerir_proximas(
         if v is not None
     }
     return _pedir("GET", "/priorizacao", params=params)
+
+
+def registrar_decisao(
+    tipo: str,
+    aceita: bool,
+    sugerido: dict | None = None,
+    escolhido: dict | None = None,
+    motivo: str | None = None,
+    responsavel: str | None = None,
+    task_id: int | None = None,
+) -> dict:
+    """Guarda uma escolha feita com opcoes, para o Falange aprender com ela.
+
+    Chame depois de TODA escolha que veio de pergunta, tanto a aceita quanto
+    a recusada, com o `motivo` quando o dev disser.
+
+    tipo: proxima_task, prioridade, estimativa, quebrar_task ou pre_task.
+    Ponha em `escolhido["rotulo"]` uma etiqueta curta e estavel do caminho
+    (ex.: "destravar", "prioritaria", "quebrar"): e por ela que o perfil
+    agrupa as decisoes e descobre padrao.
+    """
+    erro = _checar(tipo, TIPOS_DECISAO, "tipo")
+    if erro:
+        return {"erro": erro}
+    return _pedir(
+        "POST",
+        "/decisoes",
+        json={
+            "tipo": tipo,
+            "sugerido": sugerido or {},
+            "escolhido": escolhido or {},
+            "aceita": aceita,
+            "motivo": motivo,
+            "responsavel": responsavel,
+            "task_id": task_id,
+        },
+    )
+
+
+def ver_perfil() -> dict:
+    """O que o Falange aprendeu com o time ate agora.
+
+    Traz a calibracao, a taxa de aceitacao por tipo de decisao, as correcoes
+    humanas mais comuns, as `preferencias_ativas` (que voce deve respeitar) e
+    os `padroes_candidatos` (habitos detectados que ninguem confirmou ainda).
+
+    Consulte ANTES de planejar. Nao transforme candidato em regra sozinho.
+    """
+    return _pedir("GET", "/perfil")
+
+
+def registrar_preferencia(descricao: str, origem: str = "explicita") -> dict:
+    """Guarda uma regra que o time quer que a IA siga.
+
+    `explicita` (alguem pediu) nasce ativa. `inferida` (padrao que voce
+    detectou) nasce INATIVA e so vale depois de `confirmar_preferencia`.
+    """
+    erro = _checar(origem, ORIGENS_PREFERENCIA, "origem")
+    if erro:
+        return {"erro": erro}
+    return _pedir(
+        "POST", "/preferencias", json={"descricao": descricao, "origem": origem}
+    )
+
+
+def listar_preferencias(ativa: bool | None = None) -> list | dict:
+    """Lista as preferencias. `ativa=True` traz so as que valem agora."""
+    params = {"ativa": ativa} if ativa is not None else None
+    return _pedir("GET", "/preferencias", params=params)
+
+
+def confirmar_preferencia(preferencia_id: int) -> dict:
+    """Ativa uma preferencia inferida. So com um "sim" explicito do dev."""
+    return _pedir("PATCH", f"/preferencias/{preferencia_id}", json={"ativa": True})
+
+
+def desativar_preferencia(preferencia_id: int) -> dict:
+    """Desliga uma preferencia. Pode ser feito a qualquer momento."""
+    return _pedir("PATCH", f"/preferencias/{preferencia_id}", json={"ativa": False})
+
+
+def ver_calibracao() -> dict:
+    """O que as estimativas do time valeram na pratica, por classe e por bloco.
+
+    Use ANTES de estimar: se PP costuma levar mais que o previsto neste
+    projeto, estime com isso em conta em vez de repetir o chute de sempre.
+    `veredito` e coerente, superestimada, subestimada ou sem_dados (amostra
+    menor que `amostra_minima`). A duracao e tempo corrido, nao esforco.
+    """
+    return _pedir("GET", "/calibracao")
 
 
 def ver_configuracao() -> dict:
@@ -562,6 +664,49 @@ def gerar_tasks_a_partir_de_arquivo(caminho: str) -> dict:
     }
 
 
+def _classe_da_mediana(calibracao: dict, mediana: float) -> str | None:
+    """Em que classe essa duracao real cairia, segundo as faixas do backend."""
+    for classe, dados in (calibracao.get("por_estimativa") or {}).items():
+        faixa = dados.get("faixa") or {}
+        minimo, maximo = faixa.get("minimo_dias"), faixa.get("maximo_dias")
+        abaixo_do_teto = maximo is None or mediana <= maximo
+        acima_do_piso = minimo is None or mediana >= minimo
+        if acima_do_piso and abaixo_do_teto:
+            return classe
+    return None
+
+
+def _aviso_calibracao(estimativa: str, bloco: str) -> str | None:
+    """Frase curta quando os dados do projeto discordam da estimativa.
+
+    E aviso, nao reprovacao: nao entra em `motivos` e nao muda o veredito.
+    O bloco tem precedencia sobre o geral, porque infra e frontend costumam
+    ter ritmos diferentes.
+    """
+    calibracao = ver_calibracao()
+    # Backend fora do ar ou resposta inesperada: segue sem aviso, em silencio.
+    if not isinstance(calibracao, dict) or calibracao.get("erro"):
+        return None
+
+    do_bloco = (calibracao.get("por_bloco") or {}).get(bloco, {}).get(estimativa)
+    geral = (calibracao.get("por_estimativa") or {}).get(estimativa)
+
+    for dados, escopo in ((do_bloco, f"em {bloco}"), (geral, "neste projeto")):
+        if not dados or dados.get("veredito") not in ("superestimada", "subestimada"):
+            continue
+        mediana = dados["mediana_dias"]
+        sugerida = _classe_da_mediana(calibracao, mediana)
+        lado = "mais rapido" if dados["veredito"] == "superestimada" else "mais devagar"
+        frase = (
+            f"{escopo}, {estimativa} costuma sair {lado} que a faixa "
+            f"(mediana {mediana} dias, n={dados['n']})"
+        )
+        if sugerida and sugerida != estimativa:
+            frase += f"; os dados sugerem {sugerida}"
+        return frase
+    return None
+
+
 def validar_task(
     titulo: str,
     descricao: str,
@@ -577,7 +722,7 @@ def validar_task(
         if not isinstance(atuais, dict):
             existentes = atuais
 
-    return validar_pre_task(
+    veredito = validar_pre_task(
         {
             "titulo": titulo,
             "descricao": descricao,
@@ -587,3 +732,8 @@ def validar_task(
         },
         existentes,
     )
+    # Campo separado de proposito: a calibracao informa, nao reprova.
+    veredito["aviso_calibracao"] = _aviso_calibracao(
+        _canonizar(estimativa, ESTIMATIVAS), _canonizar(bloco, BLOCOS)
+    )
+    return veredito

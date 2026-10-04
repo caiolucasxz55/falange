@@ -137,3 +137,42 @@ export interface Priorizacao {
 export interface Configuracao {
   perguntas_ativas: boolean;
 }
+
+export type OrigemPreferencia = "explicita" | "inferida";
+
+export interface Preferencia {
+  id: number;
+  descricao: string;
+  origem: OrigemPreferencia;
+  ativa: boolean;
+  criada_em: string;
+}
+
+/** Habito detectado nos dados que ainda nao virou preferencia. */
+export interface PadraoCandidato {
+  descricao: string;
+  tipo: string;
+  rotulo: string;
+  ocorrencias: number;
+  total: number;
+  consistencia: number;
+}
+
+export interface ClasseCalibrada {
+  n: number;
+  mediana_dias: number | null;
+  faixa: { minimo_dias: number | null; maximo_dias: number | null };
+  veredito: "coerente" | "superestimada" | "subestimada" | "sem_dados";
+}
+
+export interface Perfil {
+  calibracao: {
+    por_estimativa: Record<string, ClasseCalibrada>;
+    por_bloco: Record<string, Record<string, ClasseCalibrada>>;
+    n_total: number;
+  } | null;
+  aceitacao_por_tipo: Record<string, { n: number; aceitas: number; taxa: number }>;
+  ajustes_comuns: string[];
+  preferencias_ativas: Preferencia[];
+  padroes_candidatos: PadraoCandidato[];
+}

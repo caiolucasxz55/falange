@@ -12,7 +12,8 @@ o caminho e pare.
 
 ## 1. Ler
 
-Chame `gerar_tasks_a_partir_de_arquivo` com `caminho: "$ARGUMENTS"`.
+Chame `gerar_tasks_a_partir_de_arquivo` com `caminho: "$ARGUMENTS"` e
+`ver_calibracao` (as estimativas do passo 2 dependem dela).
 
 - Se voltar `erro`, mostre a mensagem e pare. "Fora da raiz permitida"
   significa que o caminho esta fora de `FALANGE_DOCS_ROOT`.
@@ -35,6 +36,23 @@ Escreva as pre-tasks seguindo o `template`.
 - Poucas tasks boas valem mais que muitas vagas.
 - Se uma task so pode comecar depois de outra, anote a dependencia pelo
   numero da lista (ex.: "3 depende de 1").
+
+## Estimar com os dados do time, nao com o chute de sempre
+
+Chame `ver_calibracao` antes de redigir. Ela diz o que cada classe valeu na
+pratica (`veredito`: coerente, superestimada, subestimada, sem_dados) no
+projeto e por bloco. Prefira o veredito do BLOCO quando ele tiver amostra.
+
+- `subestimada`: a classe costuma estourar a faixa; suba a estimativa.
+- `superestimada`: costuma sair antes; desca.
+- `sem_dados`: amostra pequena demais, estime como faria normalmente.
+
+Quando a calibracao te fizer escolher diferente do que voce escolheria
+sozinho, diga isso em uma linha, com o `n`. Ex.: "coloquei M e nao P porque
+em infra P tem mediana de 3 dias (n=6)".
+
+O `validar_task` tambem devolve `aviso_calibracao`. Ele NAO reprova a task:
+e informacao para voce decidir, e vale mostrar ao dev quando aparecer.
 
 ## 3. Validar
 

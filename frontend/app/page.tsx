@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import { Board } from "@/components/Board";
 import { Filtros } from "@/components/Filtros";
+import { PainelAprendizado } from "@/components/PainelAprendizado";
 import { PainelNotas } from "@/components/PainelNotas";
 import { PainelRecomendadas } from "@/components/PainelRecomendadas";
 import { TaskForm } from "@/components/TaskForm";
@@ -32,6 +33,7 @@ export default function Home() {
         <aside>
           <TaskForm onCriada={recarregar} />
           <PainelNotas onMudou={recarregar} />
+          <PainelAprendizado />
         </aside>
         <div>
           <PainelRecomendadas versao={versao} />

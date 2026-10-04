@@ -6,6 +6,8 @@ import type {
   Nota,
   NovaNota,
   NovaTask,
+  Perfil,
+  Preferencia,
   Priorizacao,
   Status,
   Task,
@@ -133,6 +135,24 @@ export function definirConfiguracao(campos: Partial<Configuracao>): Promise<Conf
   return pedir<Configuracao>("/configuracao", {
     method: "PATCH",
     body: JSON.stringify(campos),
+  });
+}
+
+/** GET /perfil */
+export function verPerfil(): Promise<Perfil> {
+  return pedir<Perfil>("/perfil");
+}
+
+/** GET /preferencias */
+export function listarPreferencias(): Promise<Preferencia[]> {
+  return pedir<Preferencia[]>("/preferencias");
+}
+
+/** PATCH /preferencias/{id}. ativa=false desliga, sempre permitido. */
+export function definirPreferencia(id: number, ativa: boolean): Promise<Preferencia> {
+  return pedir<Preferencia>(`/preferencias/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ativa }),
   });
 }
 
