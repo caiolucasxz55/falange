@@ -13,11 +13,14 @@
       "mcp__falange__registrar_nota",
       "mcp__falange__listar_notas",
       "mcp__falange__resolver_nota",
-      "mcp__falange__editar_nota"
+      "mcp__falange__editar_nota",
+      "mcp__falange__sugerir_proximas",
+      "mcp__falange__ver_configuracao"
     ],
     "ask": [
       "mcp__falange__apagar_task",
-      "mcp__falange__apagar_nota"
+      "mcp__falange__apagar_nota",
+      "mcp__falange__definir_configuracao"
     ]
   }
 }

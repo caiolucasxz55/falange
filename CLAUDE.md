@@ -19,12 +19,28 @@ Prioridade: `alta` so quando a task trava outra ou e pre-requisito de uma
 entrega proxima; `baixa` quando pode esperar sem travar ninguem; `media` no
 resto. Se tudo for alta, nada e.
 
+## Decidir: sugerir, nao mandar
+
+Para "o que eu faco agora", use `sugerir_proximas` e apresente de 2 a 3
+CAMINHOS com o custo de cada um, a partir dos `motivos` que a tool devolve.
+Nao invente razao e nao decida sozinho o que e do dev.
+
+Antes de perguntar qualquer coisa, chame `ver_configuracao`:
+
+- `perguntas_ativas` true: pergunte (AskUserQuestion) quando houver ambiguidade
+  real em prioridade, estimativa ou quebra de task G;
+- false: decida sozinho e diga em uma linha o que escolheu e por que.
+
+Perguntar a toa e tao ruim quanto decidir errado.
+
 Comandos prontos:
 
 - `/falange-gerar <arquivo ou pasta>`: documentacao ou codigo vira tasks.
   Sugere, valida e so cria depois da aprovacao do usuario.
 - `/falange-nova <descricao>`: uma task a partir de texto livre.
 - `/falange-status [bloco|responsavel]`: panorama, somente leitura.
+- `/falange-proximo [responsavel]`: caminhos para a proxima task; pergunta
+  qual seguir e executa so o escolhido.
 
 As tools devolvem `{"erro": "..."}` em vez de falhar: leia a mensagem e
 corrija a chamada. "Backend inacessivel" significa que a stack esta fora:

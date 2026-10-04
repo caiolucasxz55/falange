@@ -49,6 +49,25 @@ Chame `validar_task` para cada pre-task (`titulo`, `descricao`, `estimativa`,
 - Se a estimativa for questionada, use `estimativa_sugerida` como referencia,
   mas prefira quebrar uma task G em duas quando fizer sentido.
 
+## Perguntar so quando ha duvida real
+
+Chame `ver_configuracao` antes de redigir.
+
+Com `perguntas_ativas` true, pergunte (AskUserQuestion, ou lista numerada se
+ela nao estiver disponivel) quando:
+
+- a prioridade for defensavel de duas formas (ex.: trava outra task, mas a
+  entrega e distante);
+- a estimativa ficar entre duas faixas e o lint nao resolver;
+- uma task G puder virar duas entregas.
+
+Com `perguntas_ativas` false, decida sozinho e diga em uma linha o que
+escolheu e por que.
+
+**Perguntar a toa e tao ruim quanto decidir errado.** Se o pedido ja da a
+resposta, nao pergunte.
+
+
 ## 4. Revisao (obrigatoria)
 
 Mostre uma tabela: numero, titulo, bloco, estimativa, prioridade, veredito,

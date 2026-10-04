@@ -90,3 +90,13 @@ class NotaEdicao(BaseModel):
     autor: Optional[str] = Field(default=None, max_length=80)
     task_id: Optional[int] = None
     resolvida: Optional[bool] = None
+
+
+class ConfiguracaoOut(BaseModel):
+    """Comportamento da plataforma. Hoje so o interruptor das perguntas."""
+
+    perguntas_ativas: bool
+
+
+class ConfiguracaoEdicao(BaseModel):
+    perguntas_ativas: Optional[bool] = None

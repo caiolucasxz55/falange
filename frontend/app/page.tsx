@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { Board } from "@/components/Board";
 import { Filtros } from "@/components/Filtros";
 import { PainelNotas } from "@/components/PainelNotas";
+import { PainelRecomendadas } from "@/components/PainelRecomendadas";
 import { TaskForm } from "@/components/TaskForm";
 import { API_URL } from "@/lib/api";
 import type { FiltrosTask } from "@/types/task";
@@ -33,6 +34,7 @@ export default function Home() {
           <PainelNotas onMudou={recarregar} />
         </aside>
         <div>
+          <PainelRecomendadas versao={versao} />
           <Filtros filtros={filtros} onMudar={setFiltros} />
           <Board filtros={filtros} versao={versao} onRecarregar={recarregar} />
         </div>

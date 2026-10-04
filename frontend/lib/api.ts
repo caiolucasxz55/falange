@@ -1,10 +1,12 @@
 import type {
+  Configuracao,
   EdicaoNota,
   EdicaoTask,
   FiltrosTask,
   Nota,
   NovaNota,
   NovaTask,
+  Priorizacao,
   Status,
   Task,
 } from "@/types/task";
@@ -114,6 +116,24 @@ export function editarNota(notaId: number, campos: EdicaoNota): Promise<Nota> {
 /** DELETE /notas/{notaId} */
 export async function apagarNota(notaId: number): Promise<void> {
   await pedir<null>(`/notas/${notaId}`, { method: "DELETE" });
+}
+
+/** GET /priorizacao */
+export function verPriorizacao(limite = 3): Promise<Priorizacao> {
+  return pedir<Priorizacao>(`/priorizacao?limite=${limite}`);
+}
+
+/** GET /configuracao */
+export function verConfiguracao(): Promise<Configuracao> {
+  return pedir<Configuracao>("/configuracao");
+}
+
+/** PATCH /configuracao */
+export function definirConfiguracao(campos: Partial<Configuracao>): Promise<Configuracao> {
+  return pedir<Configuracao>("/configuracao", {
+    method: "PATCH",
+    body: JSON.stringify(campos),
+  });
 }
 
 // ---------------------------------------------------------------------------

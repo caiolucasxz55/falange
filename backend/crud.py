@@ -5,7 +5,15 @@ from typing import Optional
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import ABERTAS, Bloco, Nota, Prioridade, Status, Task
+from backend.models import (
+    ABERTAS,
+    Bloco,
+    Configuracao,
+    Nota,
+    Prioridade,
+    Status,
+    Task,
+)
 
 
 # CASE explicito: a ordem do enum no Postgres nao e a ordem de prioridade.
@@ -218,3 +226,27 @@ async def remover_nota(session: AsyncSession, nota_id: int) -> bool:
     await session.delete(nota)
     await session.commit()
     return True
+
+
+# Valores usados quando a chave ainda nao foi gravada.
+PADROES_CONFIGURACAO = {"perguntas_ativas": "true"}
+
+
+async def ler_configuracao(session: AsyncSession) -> dict[str, str]:
+    """Configuracao completa, com os padroes preenchendo o que falta."""
+    linhas = (await session.scalars(select(Configuracao))).all()
+    gravadas = {c.chave: c.valor for c in linhas}
+    return {**PADROES_CONFIGURACAO, **gravadas}
+
+
+async def definir_configuracao(
+    session: AsyncSession, chave: str, valor: str
+) -> dict[str, str]:
+    atual = await session.get(Configuracao, chave)
+    if atual is None:
+        session.add(Configuracao(chave=chave, valor=valor))
+    else:
+        atual.valor = valor
+        atual.atualizada_em = func.now()
+    await session.commit()
+    return await ler_configuracao(session)

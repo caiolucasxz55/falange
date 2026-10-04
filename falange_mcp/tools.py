@@ -275,6 +275,56 @@ def verificar_sobrecarga(
     return _pedir("GET", "/carga", params=params)
 
 
+def sugerir_proximas(
+    responsavel: str | None = None,
+    bloco: str | None = None,
+    limite: int = 5,
+) -> dict:
+    """Ranking explicado do que da para pegar agora, com alertas da fila.
+
+    E SUGESTAO, nao decisao: apresente os caminhos ao dev com os `motivos` e
+    deixe ele escolher. Nao mude status nem prioridade por conta disso.
+
+    Cada sugestao traz `score`, `motivos` (frases prontas) e `destrava`. Os
+    `alertas` apontam inversao de prioridade, inflacao de "alta" e trabalho
+    parado. Tasks bloqueadas ficam de fora: nao sao escolha do dev.
+    """
+    erro = _checar(_canonizar(bloco, BLOCOS), BLOCOS, "bloco")
+    if erro:
+        return {"erro": erro}
+
+    params = {
+        k: v
+        for k, v in {
+            "responsavel": responsavel,
+            "bloco": _canonizar(bloco, BLOCOS),
+            "limite": limite,
+        }.items()
+        if v is not None
+    }
+    return _pedir("GET", "/priorizacao", params=params)
+
+
+def ver_configuracao() -> dict:
+    """Le o comportamento da plataforma.
+
+    `perguntas_ativas` diz se a IA deve abrir opcoes antes de decidir. Com
+    false, decida sozinho e reporte o que escolheu e por que.
+    """
+    return _pedir("GET", "/configuracao")
+
+
+def definir_configuracao(perguntas_ativas: bool) -> dict:
+    """Liga ou desliga as perguntas de multipla escolha da IA.
+
+    So chame com pedido explicito do dev: e ele quem decide quanto quer ser
+    consultado.
+    """
+    return _pedir(
+        "PATCH", "/configuracao", json={"perguntas_ativas": perguntas_ativas}
+    )
+
+
 # --------------------------------------------------------------------------
 # notas do time
 # --------------------------------------------------------------------------

@@ -15,6 +15,12 @@ Backend FastAPI sobre Postgres, exposto a uma IA por dois transportes MCP.
                 | HTTP
                 v
         backend/ (FastAPI) -> Postgres
+          |
+          +-- priorizacao.py   <- modulo puro: recebe dados, devolve dados
+
+Regra do calculo: o que e juizo (ranking, limiares, alertas) mora em modulo
+puro no backend, sem sessao e sem HTTP. A IA redige e conversa; o codigo
+calcula e julga. A tela consome o mesmo resultado por endpoint.
 
 Regra: o MCP nunca fala com o Postgres direto. Sempre via HTTP. Uma fonte
 de verdade so, e os dois transportes ficam sendo cascas finas.
@@ -94,6 +100,9 @@ banco nem por engano.
 | `verificar_sobrecarga` | nao |
 | `gerar_tasks_a_partir_de_arquivo` | **nao** - aceita arquivo ou pasta; so sugere, para voce revisar |
 | `validar_task` | nao |
+| `sugerir_proximas` | nao (ranking explicado) |
+| `ver_configuracao` | nao |
+| `definir_configuracao` | sim (liga/desliga as perguntas) |
 | `registrar_nota` | sim (nota, nao task) |
 | `listar_notas` | nao |
 | `resolver_nota` | sim (marca resolvida) |
@@ -107,6 +116,16 @@ com `task_id` voltando a null. `resolver_nota` encerra sem apagar,
 
 Os valores de `bloco`, `prioridade`, `estimativa` e `status` aceitam acento e
 qualquer caixa: "Seguranca" e "seguranca" sao o mesmo bloco.
+
+`sugerir_proximas` devolve o ranking do motor de priorizacao
+(`backend/priorizacao.py`): score, `motivos` em frases prontas e alertas de
+inversao de prioridade, inflacao de "alta" e trabalho parado. O calculo e um
+modulo puro, entao a tela usa a mesma regra por `GET /priorizacao`, sem IA.
+Todos os pesos estao no dict `PESOS`, no topo do modulo.
+
+`perguntas_ativas` (em `GET /configuracao`) liga e desliga as perguntas de
+multipla escolha da IA. Desligado, ela decide sozinha e diz o criterio. Da
+para alternar na tela ou pela tool `definir_configuracao`.
 
 Toda task tem `prioridade` (alta/media/baixa, padrao media) e os marcos de
 tempo `criada_em`, `atualizada_em`, `iniciada_em` e `concluida_em`.

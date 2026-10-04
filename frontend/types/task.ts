@@ -104,3 +104,36 @@ export interface EdicaoNota {
   task_id?: number | null;
   resolvida?: boolean;
 }
+
+/** Uma sugestao do motor de priorizacao do backend. */
+export interface Sugestao {
+  id: number;
+  titulo: string;
+  prioridade: Prioridade;
+  estimativa: Estimativa;
+  bloco: Bloco;
+  responsavel: string | null;
+  status: Status;
+  score: number;
+  /** Frases prontas explicando o score; vem do backend. */
+  motivos: string[];
+  /** Ids que esperam por esta task, direta ou transitivamente. */
+  destrava: number[];
+}
+
+export interface Alerta {
+  tipo: "inversao" | "inflacao" | "parada";
+  task_id: number | null;
+  mensagem: string;
+  tasks_afetadas: number[];
+}
+
+export interface Priorizacao {
+  sugestoes: Sugestao[];
+  alertas: Alerta[];
+  avisos: string[];
+}
+
+export interface Configuracao {
+  perguntas_ativas: boolean;
+}

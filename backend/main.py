@@ -5,6 +5,7 @@ em chamadas do crud. Os servidores MCP falam com o mundo por AQUI, nunca
 direto com o banco -- uma fonte de verdade so.
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
@@ -12,11 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
+from backend.priorizacao import ranquear
 from backend.db import get_session
 from backend.models import Bloco, Prioridade, Status
 from backend.schemas import (
     Bloqueio,
     Carga,
+    ConfiguracaoEdicao,
+    ConfiguracaoOut,
     MudancaStatus,
     NotaEdicao,
     NotaNova,
@@ -191,3 +195,74 @@ async def editar_nota(
 async def apagar_nota(nota_id: int, session: AsyncSession = Depends(get_session)):
     if not await crud.remover_nota(session, nota_id):
         raise HTTPException(404, f"nota {nota_id} nao encontrada")
+
+
+# --------------------------------------------------------------------------
+# priorizacao: o que vale a pena fazer agora
+# --------------------------------------------------------------------------
+
+
+@app.get("/priorizacao")
+async def priorizacao(
+    responsavel: Optional[str] = None,
+    bloco: Optional[Bloco] = None,
+    limite: int = Query(5, ge=1, le=50),
+    session: AsyncSession = Depends(get_session),
+):
+    """Ranking explicado das tasks que dao para pegar agora.
+
+    O ranking roda sobre TODAS as tasks: a cadeia de bloqueio e global, e
+    filtrar antes quebraria a conta de quem destrava quem. O filtro de bloco
+    se aplica depois, so nas sugestoes.
+    """
+    tasks = [
+        TaskOut.model_validate(t).model_dump()
+        for t in await crud.listar(session)
+    ]
+
+    # Carga so de quem aparece como responsavel: alimenta o aviso de sobrecarga.
+    cargas = {}
+    for nome in {t["responsavel"] for t in tasks if t["responsavel"]}:
+        abertas = await crud.contar_abertas(session, responsavel=nome)
+        cargas[nome] = {
+            "tasks_abertas": abertas,
+            "limite": settings.limite_sobrecarga,
+            "sobrecarregado": abertas > settings.limite_sobrecarga,
+        }
+
+    saida = ranquear(tasks, datetime.now(timezone.utc), cargas, responsavel)
+
+    if bloco is not None:
+        saida["sugestoes"] = [s for s in saida["sugestoes"] if s["bloco"] == bloco.value]
+    saida["sugestoes"] = saida["sugestoes"][:limite]
+    return saida
+
+
+# --------------------------------------------------------------------------
+# configuracao: comportamento da plataforma
+# --------------------------------------------------------------------------
+
+
+def _para_saida(bruta: dict) -> ConfiguracaoOut:
+    return ConfiguracaoOut(perguntas_ativas=bruta["perguntas_ativas"] == "true")
+
+
+@app.get("/configuracao", response_model=ConfiguracaoOut)
+async def ver_configuracao(session: AsyncSession = Depends(get_session)):
+    return _para_saida(await crud.ler_configuracao(session))
+
+
+@app.patch("/configuracao", response_model=ConfiguracaoOut)
+async def definir_configuracao(
+    body: ConfiguracaoEdicao, session: AsyncSession = Depends(get_session)
+):
+    campos = body.model_dump(exclude_unset=True)
+    if not campos:
+        raise HTTPException(400, "nenhum campo para alterar")
+
+    bruta = await crud.ler_configuracao(session)
+    for chave, valor in campos.items():
+        bruta = await crud.definir_configuracao(
+            session, chave, "true" if valor else "false"
+        )
+    return _para_saida(bruta)

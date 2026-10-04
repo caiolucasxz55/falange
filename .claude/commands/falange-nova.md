@@ -27,6 +27,25 @@ Monte os campos a partir do pedido:
 Nao invente escopo que o pedido nao tem. Se faltar informacao essencial
 (ex.: nao da para saber o bloco), pergunte antes de criar.
 
+## Perguntar so quando ha duvida real
+
+Chame `ver_configuracao` antes de redigir.
+
+Com `perguntas_ativas` true, pergunte (AskUserQuestion, ou lista numerada se
+ela nao estiver disponivel) quando:
+
+- a prioridade for defensavel de duas formas (ex.: trava outra task, mas a
+  entrega e distante);
+- a estimativa ficar entre duas faixas e o lint nao resolver;
+- uma task G puder virar duas entregas.
+
+Com `perguntas_ativas` false, decida sozinho e diga em uma linha o que
+escolheu e por que.
+
+**Perguntar a toa e tao ruim quanto decidir errado.** Se o pedido ja da a
+resposta, nao pergunte.
+
+
 Se o pedido mencionar outra task ("depois da #3", "travada pela #5"), anote
 para o passo 3.
 
