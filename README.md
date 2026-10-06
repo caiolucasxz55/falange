@@ -35,7 +35,7 @@ de verdade so, e os dois transportes ficam sendo cascas finas.
 
 | Servico | Host | Papel |
 |---|---|---|
-| `db` | `localhost:5433` | Postgres 18, volume `pgdata` |
+| `db` | `localhost:5434` | Postgres 18, volume `pgdata` |
 | `migrate` | - | roda `alembic upgrade head` e sai |
 | `backend` | `localhost:8010` | API FastAPI |
 | `mcp-sse` | `localhost:8765` | servidor MCP para o time |
@@ -186,6 +186,37 @@ duplicata) - nao depende do humor do modelo.
 A leitura (de arquivo ou pasta) e limitada a `FALANGE_DOCS_ROOT` (`/app/exemplos` no
 container). Caminho absoluto ou `../` fora dessa raiz e recusado - importa
 porque o `mcp-sse` e o que fica exposto ao time.
+
+## Autenticacao
+
+Duas portas, dois segredos, ambos no `.env` (fora do git):
+
+| Variavel | Protege | Quem apresenta |
+|---|---|---|
+| `API_TOKEN` | a API do backend | o MCP, e o proxy do frontend |
+| `SSE_TOKEN` | o servidor MCP SSE (a porta do time) | o client MCP de cada pessoa |
+
+Vazio = porta aberta, e o backend avisa no log ao subir. Isso so e aceitavel
+em dev local. Gere com:
+
+    python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+`/health` responde sem token, para o healthcheck do docker.
+
+**Por que dois segredos:** quem alcanca o SSE usa as credenciais do servidor
+para falar com o backend. Proteger so o backend nao protegeria nada: a porta
+exposta precisa do porteiro dela.
+
+**O frontend nao guarda segredo.** O navegador chama `/api/...`, uma rota do
+proprio Next (`frontend/app/api/[...caminho]/route.ts`) que injeta o token no
+servidor e repassa. Qualquer `NEXT_PUBLIC_` acabaria no bundle, visivel para
+quem abrisse a pagina. Como o caminho e a mesma origem, o frontend tambem
+deixou de depender de CORS.
+
+**O que isto NAO e:** autenticacao de pessoa. O token diz "este cliente pode
+usar a API", nunca "quem e voce". Nada aqui e atribuivel a ninguem, `autor` e
+`responsavel` seguem texto livre, e qualquer um com o token faz tudo o que
+qualquer outro faz. Identidade por usuario e V2.
 
 ## Conectar o Claude
 

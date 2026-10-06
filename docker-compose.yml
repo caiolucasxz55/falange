@@ -14,8 +14,8 @@ services:
       # subdiretorio por major version). Montar em /data faz a imagem abortar.
       - pgdata:/var/lib/postgresql
     ports:
-      # 5433 no host: a 5432 ja e do Postgres 18 nativo desta maquina.
-      - "5433:5432"
+      # 5434 no host: a 5432 e do Postgres nativo e a 5433 do rag-whitelabel.
+      - "5434:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U falange -d falange"]
       interval: 3s
@@ -36,6 +36,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://falange:${POSTGRES_PASSWORD:-falange}@db:5432/falange
       LIMITE_SOBRECARGA: ${LIMITE_SOBRECARGA:-5}
+      # Vazio = API aberta. Preencha em qualquer maquina que o time alcance.
+      API_TOKEN: ${API_TOKEN:-}
     ports:
       # 8010 no host: 8000 e 8001 ja estao com outros projetos desta maquina.
       # Dentro da rede do compose o backend continua na 8000.
@@ -61,6 +63,11 @@ services:
       BACKEND_URL: http://backend:8000
       FALANGE_DOCS_ROOT: /app/exemplos
       MCP_SSE_HOST: 0.0.0.0
+      # Token que o SSE apresenta ao backend.
+      API_TOKEN: ${API_TOKEN:-}
+      # Token que o SSE exige de quem se conecta nele. Porta diferente,
+      # segredo diferente: esta e a que fica exposta ao time.
+      SSE_TOKEN: ${SSE_TOKEN:-}
     ports:
       - "8765:8765"
     depends_on:

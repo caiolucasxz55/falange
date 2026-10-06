@@ -10,12 +10,14 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
 from backend.autonomia import DECISAO_POR_ACAO
 from backend.autonomia import montar as montar_autonomia
 from backend.calibracao import calibrar
+from backend.seguranca import exige_token, token_valido
 from backend.perfil import montar as montar_perfil
 from backend.priorizacao import ranquear
 from backend.db import get_session
@@ -58,6 +60,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def exigir_token(request, proxima):
+    """Porteiro da API: sem o token certo, nao entra.
+
+    CORS nao e seguranca: ele so restringe navegador. Qualquer curl alcanca
+    a API sem passar por ele, entao a checagem acontece aqui.
+    """
+    if exige_token(request.url.path, request.method, settings.api_token):
+        if not token_valido(request.headers.get("authorization"), settings.api_token):
+            return JSONResponse({"detail": "token invalido ou ausente"}, status_code=401)
+    return await proxima(request)
+
+
+@app.on_event("startup")
+async def avisar_porta_aberta():
+    if not settings.api_token:
+        # Barulhento de proposito: ninguem deve subir isto exposto sem token.
+        print("ATENCAO: API_TOKEN vazio, a API esta aberta a quem alcancar a porta")
 
 
 @app.get("/health")

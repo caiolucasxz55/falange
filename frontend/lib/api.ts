@@ -16,12 +16,14 @@ import type {
 } from "@/types/task";
 
 /**
- * URL do backend Falange. Troque por NEXT_PUBLIC_API_URL no .env.local.
+ * O navegador fala com a MESMA origem: /api e um proxy do Next que injeta o
+ * token no servidor (app/api/[...caminho]/route.ts). O token nunca chega ao
+ * bundle, e nao ha CORS no caminho.
  *
- * O padrao e 8010, nao 8000: nesta maquina a 8000 e de outro projeto
- * (ResinArts) e o docker-compose publica o Falange na 8010.
+ * Para apontar para outro backend, use FALANGE_BACKEND_URL no servidor, nao
+ * aqui: esta constante e o caminho do proxy, nao o endereco do backend.
  */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8010";
+export const API_URL = "/api";
 
 /** Erro de chamada ao backend, com mensagem pronta para mostrar na tela. */
 export class ApiError extends Error {

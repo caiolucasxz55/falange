@@ -25,8 +25,9 @@ export default function Home() {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Falange</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Backend: <code className="rounded bg-gray-100 px-1">{API_URL}</code>. A lista
-          atualiza sozinha a cada 15s enquanto a aba estiver visivel.
+          A lista atualiza sozinha a cada 15s enquanto a aba estiver visivel. As
+          chamadas passam por <code className="rounded bg-gray-100 px-1">{API_URL}</code>,
+          o proxy que guarda o token no servidor.
         </p>
       </header>
 

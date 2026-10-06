@@ -92,6 +92,14 @@ de mais gente, sem virar task bloqueada so para ser discutida. `listar_notas`
 le, `resolver_nota` fecha sem apagar, `editar_nota` corrige (e reabre, com
 `resolvida=false`) e `apagar_nota` remove de vez.
 
+## Autenticacao
+
+O MCP le `API_TOKEN` do `.env` da raiz (caminho absoluto, porque o stdio nao
+herda o ambiente) e manda em toda chamada. Se uma tool devolver "backend
+recusou o token", o `.env` nao bate com o do backend.
+
+Nunca escreva token no `.mcp.json`: ele e versionado.
+
 ## Codigo
 
 - O MCP fala com o backend so por HTTP. `falange_mcp/` nao importa nada de
@@ -101,4 +109,4 @@ le, `resolver_nota` fecha sem apagar, `editar_nota` corrige (e reabre, com
   `.claude/settings.json`: `allow` para leitura e escrita comum, `ask` se
   for destrutiva (como `apagar_task`).
 - Portas nesta maquina: backend 8010, MCP SSE 8765, frontend 3010, Postgres
-  5433 (8000, 3000 e 5432 sao de outros projetos).
+  5434 (8000, 3000, 5432 e 5433 sao de outros projetos).

@@ -16,5 +16,10 @@ class Settings(BaseSettings):
     # No .env, em JSON: CORS_ORIGINS=["http://localhost:3010"]
     cors_origins: list[str] = ["http://localhost:3010"]
 
+    # Segredo compartilhado exigido em toda chamada. Vazio = porta aberta,
+    # aceitavel so em dev local. Em qualquer maquina que o time alcance,
+    # preencha: sem isso, quem chega na porta cria e apaga task.
+    api_token: str = ""
+
 
 settings = Settings()

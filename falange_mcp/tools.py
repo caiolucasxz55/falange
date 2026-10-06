@@ -69,12 +69,16 @@ def _pedir(metodo: str, caminho: str, **kw):
     """
     try:
         cabecalhos = {**CABECALHO_FONTE, **(kw.pop("headers", None) or {})}
+        if settings.api_token:
+            cabecalhos["Authorization"] = f"Bearer {settings.api_token}"
         r = httpx.request(
             metodo, f"{BACKEND}{caminho}", timeout=10, headers=cabecalhos, **kw
         )
     except httpx.HTTPError as e:
         return {"erro": f"backend inacessivel em {BACKEND}: {e}"}
 
+    if r.status_code == 401:
+        return {"erro": "backend recusou o token (FALANGE API_TOKEN confere?)"}
     if r.status_code == 204:
         return {"ok": True}
     if r.status_code == 422:
