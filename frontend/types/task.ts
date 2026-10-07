@@ -22,6 +22,10 @@ export interface Task {
   estimativa: Estimativa;
   bloco: Bloco;
   responsavel: string | null;
+  /** Id do usuario responsavel. O texto acima e o rotulo de quem nao tem conta. */
+  responsavel_id: number | null;
+  /** Quem criou. null nas tasks de antes da V2. */
+  autor_id: number | null;
   /** Id da task que trava esta. null = nao esta bloqueada. */
   bloqueada_por: number | null;
   status: Status;
@@ -32,6 +36,8 @@ export interface Task {
   /** Primeira ida para em_andamento; null se nunca comecou. */
   iniciada_em: string | null;
   concluida_em: string | null;
+  /** Derivada pelo backend a partir de quem chamou; nao e declaravel. */
+  origem: Origem;
 }
 
 /** Payload de criacao (TaskNova). id e status sao definidos pelo backend. */
@@ -85,6 +91,7 @@ export interface Nota {
   id: number;
   texto: string;
   autor: string | null;
+  autor_id: number | null;
   /** Task ligada; volta a null se a task for apagada. */
   task_id: number | null;
   resolvida: boolean;
@@ -191,4 +198,82 @@ export interface Autonomia {
   acoes: Record<string, AcaoAutonoma>;
   janela: number;
   niveis: NivelAutonomia[];
+}
+
+export type Origem = "ia" | "humano";
+
+// ---------------------------------------------------------------------------
+// identidade e papel
+// ---------------------------------------------------------------------------
+
+/** Os quatro papeis humanos mais a conta de servico da IA. */
+export type Papel = "admin" | "lead" | "dev" | "leitor" | "ia";
+
+/**
+ * Acoes que a API protege. Vem de `dominio/papeis.py`; a tela usa para
+ * nao desenhar botao que vai dar 403.
+ */
+export type Acao =
+  | "ler"
+  | "criar_task"
+  | "editar_task"
+  | "definir_prioridade"
+  | "atribuir_responsavel"
+  | "mudar_status_task"
+  | "marcar_bloqueio"
+  | "apagar_task"
+  | "apagar_task_propria"
+  | "criar_nota"
+  | "editar_nota"
+  | "resolver_nota"
+  | "apagar_nota"
+  | "apagar_nota_propria"
+  | "registrar_decisao"
+  | "criar_preferencia"
+  | "ativar_preferencia"
+  | "promover_autonomia"
+  | "rebaixar_autonomia"
+  | "definir_configuracao"
+  | "gerir_usuarios";
+
+export interface Usuario {
+  id: number;
+  email: string;
+  nome: string;
+  papel: Papel;
+  ativo: boolean;
+  criado_em: string;
+}
+
+/** GET /eu: quem a API acha que sou e o que eu alcanco. */
+export interface Eu {
+  usuario: Usuario | null;
+  papel: Papel | null;
+  acoes: Acao[];
+  /** true quando nao ha login e a API esta tratando a chamada como admin. */
+  sem_login: boolean;
+}
+
+export interface Credenciais {
+  email: string;
+  senha: string;
+}
+
+/** O que o login devolve a tela. Os tokens ficam nos cookies, no proxy. */
+export interface SessaoAberta {
+  expira_em_minutos: number;
+  usuario: Usuario;
+}
+
+export interface NovoUsuario {
+  email: string;
+  nome: string;
+  senha: string;
+  papel: Papel;
+}
+
+export interface EdicaoUsuario {
+  nome?: string;
+  papel?: Papel;
+  ativo?: boolean;
 }

@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { NotaItem } from "@/components/NotaItem";
 import { listarNotas, mensagemDoErro, registrarNota } from "@/lib/api";
+import { useSessao } from "@/components/SessaoProvider";
 import type { Nota } from "@/types/task";
 
 // Mesmo padrao do Board: o resultado guarda a chave que o produziu, para
@@ -19,6 +20,8 @@ interface PainelNotasProps {
 
 /** Notas do time: registro, lista (abertas ou resolvidas) e acoes. */
 export function PainelNotas({ onMudou }: PainelNotasProps) {
+  const { pode } = useSessao();
+  const podeCriar = pode("criar_nota");
   const [mostrarResolvidas, setMostrarResolvidas] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [versao, setVersao] = useState(0);
@@ -134,6 +137,7 @@ export function PainelNotas({ onMudou }: PainelNotasProps) {
         Problema, decisao ou duvida que precisa de mais gente, sem virar task.
       </p>
 
+      {podeCriar && (
       <form onSubmit={registrar} className="mt-3 space-y-2">
         <textarea
           required
@@ -172,6 +176,7 @@ export function PainelNotas({ onMudou }: PainelNotasProps) {
           {ocupado ? "Registrando..." : "Registrar nota"}
         </button>
       </form>
+      )}
 
       {erro && (
         <p className="mt-2 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">

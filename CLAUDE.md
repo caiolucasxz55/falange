@@ -1,8 +1,9 @@
 # Falange
 
 Organizador de tasks para times de dev. Backend FastAPI + Postgres, exposto a
-IA pelo servidor MCP `falange` (`.mcp.json`), e uma tela de teste em Next.js
-(`frontend/`, http://localhost:3010). Detalhes no `README.md`.
+IA pelo servidor MCP `falange` (`.mcp.json`), e uma tela em Next.js
+(`frontend/`, http://localhost:3010) com login e papeis. Detalhes no
+`README.md`.
 
 ## Tasks: sempre pelo MCP
 

@@ -1,6 +1,9 @@
 import type {
   Autonomia,
   Configuracao,
+  Credenciais,
+  EdicaoUsuario,
+  Eu,
   EdicaoNota,
   EdicaoTask,
   FiltrosTask,
@@ -9,10 +12,13 @@ import type {
   NivelAutonomia,
   NovaTask,
   Perfil,
+  NovoUsuario,
   Preferencia,
   Priorizacao,
+  SessaoAberta,
   Status,
   Task,
+  Usuario,
 } from "@/types/task";
 
 /**
@@ -174,6 +180,76 @@ export function definirAutonomia(
     method: "PATCH",
     body: JSON.stringify({ nivel }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// sessao e identidade
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /sessao. O proxy intercepta: guarda access e refresh em cookies
+ * HttpOnly e devolve so quem entrou. Nenhum token chega a este codigo, o que
+ * e o ponto -- um XSS aqui nao acharia nada para roubar.
+ */
+export function entrar(credenciais: Credenciais): Promise<SessaoAberta> {
+  return pedir<SessaoAberta>("/sessao", {
+    method: "POST",
+    body: JSON.stringify(credenciais),
+  });
+}
+
+/** DELETE /sessao. Encerra no backend e apaga os cookies no proxy. */
+export async function sair(): Promise<void> {
+  await pedir<null>("/sessao", { method: "DELETE" });
+}
+
+/** GET /eu. Quem a API acha que sou e o que eu alcanco. */
+export function verEu(): Promise<Eu> {
+  return pedir<Eu>("/eu");
+}
+
+/** PATCH /eu/senha. Trocar a senha encerra as outras sessoes. */
+export async function trocarSenha(
+  senhaAtual: string,
+  senhaNova: string,
+): Promise<void> {
+  await pedir<null>("/eu/senha", {
+    method: "PATCH",
+    body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// usuarios (so admin)
+// ---------------------------------------------------------------------------
+
+/** GET /usuarios */
+export function listarUsuarios(): Promise<Usuario[]> {
+  return pedir<Usuario[]>("/usuarios");
+}
+
+/** POST /usuarios */
+export function criarUsuario(novo: NovoUsuario): Promise<Usuario> {
+  return pedir<Usuario>("/usuarios", {
+    method: "POST",
+    body: JSON.stringify(novo),
+  });
+}
+
+/** PATCH /usuarios/{id}. Rebaixar ou desativar corta as sessoes da pessoa. */
+export function editarUsuario(
+  usuarioId: number,
+  campos: EdicaoUsuario,
+): Promise<Usuario> {
+  return pedir<Usuario>(`/usuarios/${usuarioId}`, {
+    method: "PATCH",
+    body: JSON.stringify(campos),
+  });
+}
+
+/** DELETE /usuarios/{id}/sessoes. O caso do notebook perdido. */
+export async function cortarSessoes(usuarioId: number): Promise<void> {
+  await pedir<null>(`/usuarios/${usuarioId}/sessoes`, { method: "DELETE" });
 }
 
 // ---------------------------------------------------------------------------

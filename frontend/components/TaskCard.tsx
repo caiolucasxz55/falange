@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useSessao } from "@/components/SessaoProvider";
 import { TaskCardEdicao } from "@/components/TaskCardEdicao";
 import {
   apagarTask,
@@ -55,6 +56,19 @@ export function TaskCard({
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+
+  // Esconder nao e autorizar: a API recusa de todo jeito. Isto so evita
+  // oferecer botao que ja se sabe que vai dar 403.
+  const { pode, eu } = useSessao();
+  const podeStatus = pode("mudar_status_task");
+  const podeEditar = pode("editar_task");
+  const podeBloqueio = pode("marcar_bloqueio");
+  // Quem apaga so o proprio precisa ser o autor da task.
+  const podeApagar =
+    pode("apagar_task") ||
+    (pode("apagar_task_propria") &&
+      task.autor_id !== null &&
+      task.autor_id === eu?.usuario?.id);
   const [bloqueando, setBloqueando] = useState(false);
   const [idBloqueadora, setIdBloqueadora] = useState("");
   const [verNotas, setVerNotas] = useState(false);
@@ -183,7 +197,7 @@ export function TaskCard({
           )}
 
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-2">
-            {posicao > 0 && (
+            {podeStatus && posicao > 0 && (
               <button
                 type="button"
                 className={botao}
@@ -193,7 +207,7 @@ export function TaskCard({
                 &larr; {ROTULO_STATUS[STATUS[posicao - 1]]}
               </button>
             )}
-            {posicao < STATUS.length - 1 && (
+            {podeStatus && posicao < STATUS.length - 1 && (
               <button
                 type="button"
                 className={botao}
@@ -203,15 +217,17 @@ export function TaskCard({
                 {ROTULO_STATUS[STATUS[posicao + 1]]} &rarr;
               </button>
             )}
-            <button
-              type="button"
-              className={botao}
-              disabled={ocupado}
-              onClick={() => setEditando(true)}
-            >
-              Editar
-            </button>
-            {bloqueada ? (
+            {podeEditar && (
+              <button
+                type="button"
+                className={botao}
+                disabled={ocupado}
+                onClick={() => setEditando(true)}
+              >
+                Editar
+              </button>
+            )}
+            {!podeBloqueio ? null : bloqueada ? (
               <button
                 type="button"
                 className={botao}
@@ -230,14 +246,16 @@ export function TaskCard({
                 Bloquear
               </button>
             )}
-            <button
-              type="button"
-              className={botao}
-              disabled={ocupado}
-              onClick={() => setConfirmandoExclusao(true)}
-            >
-              Apagar
-            </button>
+            {podeApagar && (
+              <button
+                type="button"
+                className={botao}
+                disabled={ocupado}
+                onClick={() => setConfirmandoExclusao(true)}
+              >
+                Apagar
+              </button>
+            )}
           </div>
 
           {bloqueando && !bloqueada && (

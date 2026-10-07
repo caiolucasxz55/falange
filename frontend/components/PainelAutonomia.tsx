@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { definirAutonomia, mensagemDoErro, verAutonomia } from "@/lib/api";
+import { useSessao } from "@/components/SessaoProvider";
 import type { Autonomia, NivelAutonomia } from "@/types/task";
 
 const ROTULO_NIVEL: Record<NivelAutonomia, string> = {
@@ -34,6 +35,9 @@ type Resultado =
  * a IA, com um sim explicito. A assimetria e de proposito: tirar confianca
  * precisa ser facil; dar confianca precisa ser deliberado. */
 export function PainelAutonomia() {
+  const { pode } = useSessao();
+  const podePromover = pode("promover_autonomia");
+  const podeRebaixar = pode("rebaixar_autonomia");
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [versao, setVersao] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
@@ -68,10 +72,16 @@ export function PainelAutonomia() {
     <section className="mt-4 rounded border border-gray-200 bg-white p-4">
       <h2 className="text-lg font-semibold text-gray-900">Autonomia da IA</h2>
       <p className="mt-1 text-xs text-gray-500">
-        Promover so daqui: a API recusa promocao vinda do MCP, entao a IA
-        pode pedir, mas quem sobe a confianca e voce. Rebaixar qualquer um
-        faz, inclusive ela. Apagar task ou nota nunca entra aqui.
+        Promover e de admin ou lead: a API recusa promocao vinda da IA,
+        entao ela pode pedir, mas quem sobe a confianca e uma pessoa.
+        Rebaixar qualquer um faz, inclusive ela. Apagar task ou nota nunca
+        entra aqui.
       </p>
+      {!podePromover && (
+        <p className="mt-1 text-xs text-gray-500">
+          Seu papel nao promove; voce ve o nivel e pode rebaixar.
+        </p>
+      )}
 
       {erro && (
         <p className="mt-2 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
@@ -100,7 +110,7 @@ export function PainelAutonomia() {
                   >
                     {ROTULO_NIVEL[estado.nivel]}
                   </span>
-                  {estado.pode && estado.proximo_nivel && (
+                  {podePromover && estado.pode && estado.proximo_nivel && (
                     <button
                       type="button"
                       disabled={ocupado}
@@ -110,7 +120,7 @@ export function PainelAutonomia() {
                       Promover para {ROTULO_NIVEL[estado.proximo_nivel]}
                     </button>
                   )}
-                  {abaixo && (
+                  {podeRebaixar && abaixo && (
                     <button
                       type="button"
                       disabled={ocupado}

@@ -8,6 +8,7 @@ import {
   mensagemDoErro,
   verPerfil,
 } from "@/lib/api";
+import { useSessao } from "@/components/SessaoProvider";
 import type { ClasseCalibrada, Perfil, Preferencia } from "@/types/task";
 
 const ESTILO_VEREDITO: Record<ClasseCalibrada["veredito"], string> = {
@@ -26,6 +27,8 @@ type Resultado =
  * As inferidas aparecem para confirmar ou descartar. Desativar qualquer uma
  * e sempre um clique: a regra e do time, nao da IA. */
 export function PainelAprendizado() {
+  const { pode } = useSessao();
+  const podeAtivar = pode("ativar_preferencia");
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [versao, setVersao] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
@@ -128,14 +131,16 @@ export function PainelAprendizado() {
               >
                 <p className="text-xs text-amber-900">{preferencia.descricao}</p>
                 <div className="mt-1.5 flex gap-1.5">
-                  <button
-                    type="button"
-                    disabled={ocupado}
-                    onClick={() => alternar(preferencia.id, true)}
-                    className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    Confirmar
-                  </button>
+                  {podeAtivar && (
+                    <button
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => alternar(preferencia.id, true)}
+                      className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      Confirmar
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={ocupado}

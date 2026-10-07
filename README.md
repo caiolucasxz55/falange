@@ -78,7 +78,7 @@ Precisa de um Postgres proprio e da `DATABASE_URL` no `.env`:
     .venv/Scripts/python -m uvicorn backend.main:app --port 8000
     .venv/Scripts/python -m falange_mcp.sse
 
-## Frontend de teste
+## Frontend
 
 Tela minima em Next.js para ver o fluxo MCP -> backend. Detalhes em
 `frontend/README.md`.
@@ -87,6 +87,20 @@ Tela minima em Next.js para ver o fluxo MCP -> backend. Detalhes em
 
 O backend libera CORS so para as origens em `CORS_ORIGINS` (padrao
 `http://localhost:3010`).
+
+### A tela respeita o papel
+
+`GET /eu` devolve o papel e a lista de acoes, e a tela esconde o que aquele
+papel nao alcanca: um leitor nao ve formulario de task nem botao de apagar,
+um dev nao ve "Promover" na autonomia, so admin ve o painel "Time".
+
+Esconder **nao e autorizar**: a API recusa de todo jeito. Isto existe para
+nao oferecer botao que ja se sabe que vai dar 403 -- a checagem de verdade
+esta em `dominio/papeis.py`.
+
+No modo de transicao (`EXIGIR_LOGIN=false`) a tela mostra um aviso "sem
+login" e um link "entrar com uma conta": sem ele, o login ficaria
+inalcancavel, porque `/eu` responde 200 e a tela nunca cairia no formulario.
 
 ## Configuracao
 
@@ -224,10 +238,19 @@ para falar com o backend. Proteger so o backend nao protegeria nada: a porta
 exposta precisa do porteiro dela.
 
 **O frontend nao guarda segredo.** O navegador chama `/api/...`, uma rota do
-proprio Next (`frontend/app/api/[...caminho]/route.ts`) que injeta o token no
-servidor e repassa. Qualquer `NEXT_PUBLIC_` acabaria no bundle, visivel para
-quem abrisse a pagina. Como o caminho e a mesma origem, o frontend tambem
-deixou de depender de CORS.
+proprio Next (`frontend/app/api/[...caminho]/route.ts`) que injeta a
+credencial no servidor e repassa. Qualquer `NEXT_PUBLIC_` acabaria no bundle,
+visivel para quem abrisse a pagina. Como o caminho e a mesma origem, o
+frontend tambem deixou de depender de CORS.
+
+Com login, esse proxy guarda o access e o refresh da pessoa em cookies
+**HttpOnly**: o JavaScript da pagina nao os alcanca, entao um XSS na tela nao
+rouba a sessao, e o `POST /sessao` volta ao navegador SEM os tokens. O proxy
+tambem trata o 401 de access vencido sozinho -- renova com o refresh, repete
+o pedido e grava os cookies novos -- para a pessoa nao ser deslogada a cada
+15 minutos. Em producao o cookie recebe `Secure`; em dev local ele fica de
+fora, senao o navegador descarta o cookie em `http://` e o login "funciona"
+sem nunca logar.
 
 ### O que a API trava sozinha
 
