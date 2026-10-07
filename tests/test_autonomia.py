@@ -1,6 +1,6 @@
 """Testes da autonomia gradual. Modulo puro: nao precisa de banco."""
 
-from backend.autonomia import (
+from backend.dominio.autonomia import (
     ACOES,
     JANELA,
     NIVEIS,
@@ -168,7 +168,7 @@ def test_marcar_bloqueio_nunca_promove_por_falta_de_historico():
 
 
 def test_e_promocao_so_quando_sobe_a_escada():
-    from backend.autonomia import e_promocao
+    from backend.dominio.autonomia import e_promocao
 
     assert e_promocao("perguntar", "confirmar_em_lote")
     assert e_promocao("confirmar_em_lote", "automatico")

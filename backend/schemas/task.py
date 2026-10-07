@@ -1,0 +1,68 @@
+"""Contratos de entrada e saida da task."""
+
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from backend.models.enums import Bloco, Estimativa, Origem, Prioridade, Status
+from backend.schemas.limites import MAX_DESCRICAO
+
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    titulo: str
+    descricao: str
+    estimativa: Estimativa
+    bloco: Bloco
+    responsavel: Optional[str] = None
+    bloqueada_por: Optional[int] = None
+    status: Status
+    prioridade: Prioridade
+    criada_em: datetime
+    atualizada_em: datetime
+    iniciada_em: Optional[datetime] = None
+    concluida_em: Optional[datetime] = None
+    origem: Origem
+
+
+class TaskNova(BaseModel):
+    titulo: str = Field(min_length=1, max_length=120)
+    descricao: str = Field(default="", max_length=MAX_DESCRICAO)
+    estimativa: Estimativa
+    bloco: Bloco
+    prioridade: Prioridade = Prioridade.media
+    responsavel: Optional[str] = Field(default=None, max_length=80)
+    # `origem` NAO entra aqui: e derivada do header X-Falange-Fonte pelo
+    # backend. Deixar o cliente declarar quem escreveu a task permitiria
+    # forjar autoria da IA e envenenar a calibracao e o perfil.
+
+
+class TaskEdicao(BaseModel):
+    """Edicao parcial: so os campos enviados sao alterados."""
+
+    titulo: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    descricao: Optional[str] = Field(default=None, max_length=MAX_DESCRICAO)
+    estimativa: Optional[Estimativa] = None
+    bloco: Optional[Bloco] = None
+    prioridade: Optional[Prioridade] = None
+    responsavel: Optional[str] = Field(default=None, max_length=80)
+
+
+class Bloqueio(BaseModel):
+    # None = desbloquear. Um id = travada por aquela task.
+    bloqueada_por: Optional[int] = None
+
+
+class MudancaStatus(BaseModel):
+    status: Status
+
+
+class Carga(BaseModel):
+    escopo: str
+    alvo: Optional[str]
+    tasks_abertas: int
+    limite: int
+    sobrecarregado: bool

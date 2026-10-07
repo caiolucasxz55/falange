@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from backend.calibracao import AMOSTRA_MINIMA, calibrar
+from backend.dominio.calibracao import AMOSTRA_MINIMA, calibrar
 
 INICIO = datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)
 

@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 
-from backend.priorizacao import PESOS, ranquear
+from backend.dominio.priorizacao import PESOS, ranquear
 
 AGORA = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
 

@@ -1,6 +1,6 @@
 """Testes do limite de requisicoes. Modulo puro: nao precisa de banco."""
 
-from backend.limite import permitido, segundos_para_liberar
+from backend.dominio.limite import permitido, segundos_para_liberar
 
 
 def test_passa_ate_o_teto():

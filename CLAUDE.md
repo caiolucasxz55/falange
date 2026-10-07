@@ -109,6 +109,15 @@ Nunca escreva token no `.mcp.json`: ele e versionado.
 
 - O MCP fala com o backend so por HTTP. `falange_mcp/` nao importa nada de
   `backend/` e nao conhece `DATABASE_URL`.
+- Onde cada coisa vai no backend: rota em `rotas/`, query em
+  `repositorio/`, conta e julgamento em `dominio/` (modulo puro, sem sessao
+  e sem HTTP), tabela em `models/`, contrato em `schemas/`. `main.py` so
+  monta o app -- nao ponha rota nem regra nele.
+- A dependencia aponta so para baixo: `rotas/` chama `repositorio/` e
+  `dominio/`; `repositorio/` nao levanta `HTTPException` (devolve `None`,
+  `False` ou `(valor, erro)`); `dominio/` nao importa nenhum dos dois.
+- Em `rotas/tasks.py`, `/tasks/contagem-por-bloco` tem de ficar declarada
+  ANTES de `/tasks/{task_id}`, senao o caminho literal cai no parametro.
 - Tool nova: funcao em `falange_mcp/tools.py` + citar em `TOOLS` no
   `falange_mcp/server.py`. Registre a permissao dela no
   `.claude/settings.json`: `allow` para leitura e escrita comum, `ask` se

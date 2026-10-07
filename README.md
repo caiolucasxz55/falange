@@ -15,14 +15,25 @@ Backend FastAPI sobre Postgres, exposto a uma IA por dois transportes MCP.
                 | HTTP
                 v
         backend/ (FastAPI) -> Postgres
-          |
-          +-- priorizacao.py   <- modulo puro: recebe dados, devolve dados
-          +-- calibracao.py    <- modulo puro: estimado x duracao real
-          +-- perfil.py        <- modulo puro: decisoes viram padroes
-          +-- autonomia.py     <- modulo puro: promocao e rebaixamento
+
+O backend tem quatro camadas, e a dependencia so aponta para baixo:
+
+    backend/
+      main.py          <- monta o app: CORS, middlewares, routers. E so isso.
+      middlewares.py   <- token e rate limit, antes de qualquer rota
+      rotas/           <- HTTP: le o pedido, chama, escolhe o status
+      repositorio/     <- banco: toda query mora aqui, uma por agregado
+      dominio/         <- juizo: modulo puro, sem sessao e sem HTTP
+      models/          <- tabelas (SQLAlchemy), um arquivo por agregado
+      schemas/         <- contrato de entrada e saida (Pydantic)
+      seguranca/       <- quem alcanca a API e o que cada lado pode fazer
+
+`rotas/` nao sabe SQL e `repositorio/` nao sabe o que e um status HTTP: ele
+devolve `None`, `False` ou `(valor, erro)` e quem traduz para 404 ou 409 e a
+rota. `dominio/` nao conhece nenhum dos dois.
 
 Regra do calculo: o que e juizo (ranking, limiares, alertas) mora em modulo
-puro no backend, sem sessao e sem HTTP. A IA redige e conversa; o codigo
+puro em `dominio/`, sem sessao e sem HTTP. A IA redige e conversa; o codigo
 calcula e julga. A tela consome o mesmo resultado por endpoint.
 
 Regra: o MCP nunca fala com o Postgres direto. Sempre via HTTP. Uma fonte
@@ -130,7 +141,7 @@ Os valores de `bloco`, `prioridade`, `estimativa` e `status` aceitam acento e
 qualquer caixa: "Seguranca" e "seguranca" sao o mesmo bloco.
 
 `sugerir_proximas` devolve o ranking do motor de priorizacao
-(`backend/priorizacao.py`): score, `motivos` em frases prontas e alertas de
+(`backend/dominio/priorizacao.py`): score, `motivos` em frases prontas e alertas de
 inversao de prioridade, inflacao de "alta" e trabalho parado. O calculo e um
 modulo puro, entao a tela usa a mesma regra por `GET /priorizacao`, sem IA.
 Todos os pesos estao no dict `PESOS`, no topo do modulo.
@@ -140,13 +151,13 @@ Todos os pesos estao no dict `PESOS`, no topo do modulo.
 bloco. O veredito e `coerente`, `superestimada`, `subestimada` ou
 `sem_dados` (amostra menor que `AMOSTRA_MINIMA`). O `validar_task` devolve
 isso em `aviso_calibracao`, que informa e NAO reprova a task. As faixas estao
-em `FAIXAS`, no topo de `backend/calibracao.py`.
+em `FAIXAS`, no topo de `backend/dominio/calibracao.py`.
 
 `ver_perfil` junta a calibracao, a taxa de aceitacao por tipo de decisao, as
 correcoes humanas mais comuns, as preferencias ativas e os
 `padroes_candidatos` — habitos com pelo menos `MINIMO_OCORRENCIAS` registros e
 `CONSISTENCIA_MINIMA` de consistencia que ainda nao viraram regra. Os dois
-limiares estao no topo de `backend/perfil.py`.
+limiares estao no topo de `backend/dominio/perfil.py`.
 
 Correcao humana entra sozinha: o MCP manda o header `X-Falange-Fonte: mcp` em
 toda chamada, a tela nao manda. Quando uma task com `origem = ia` tem

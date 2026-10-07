@@ -1,6 +1,6 @@
 """Testes do perfil do time. Modulo puro: nao precisa de banco."""
 
-from backend.perfil import (
+from backend.dominio.perfil import (
     CONSISTENCIA_MINIMA,
     MINIMO_OCORRENCIAS,
     deve_registrar_ajuste,
