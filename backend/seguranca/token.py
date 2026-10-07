@@ -31,6 +31,26 @@ def token_valido(cabecalho: Optional[str], esperado: str) -> bool:
     return secrets.compare_digest(cabecalho[len(PREFIXO) :], esperado)
 
 
+def entrada_permitida(
+    cabecalho: Optional[str], esperado: str, access_confere: bool
+) -> bool:
+    """A porta abre com o token compartilhado OU com um access token valido.
+
+    Duas credenciais chegam pelo mesmo header `Authorization: Bearer`: o
+    segredo compartilhado (MCP e proxy da tela) e o JWT de quem fez login.
+    Conferir so o primeiro barraria todo usuario logado com 401 antes de a
+    rota existir -- foi exatamente o que aconteceu na primeira versao disto.
+
+    Aqui so se decide se ENTRA. Quem e a pessoa e o que ela pode fazer e
+    assunto de `seguranca/dependencias.py`, que le a sessao e o papel no
+    banco.
+    """
+    if not esperado:
+        # Sem token configurado, a porta esta aberta de proposito (dev local).
+        return True
+    return token_valido(cabecalho, esperado) or access_confere
+
+
 def exige_token(caminho: str, metodo: str, esperado: str) -> bool:
     """Esta requisicao precisa de token?
 
@@ -46,18 +66,8 @@ def exige_token(caminho: str, metodo: str, esperado: str) -> bool:
 
 
 # Valor do header X-Falange-Fonte que o MCP manda em toda chamada.
+#
+# Serve para DUAS coisas, e so: derivar `origem` da task e reconhecer a
+# conta de servico em `seguranca/dependencias.py`. Autorizacao nao passa
+# mais por aqui -- quem decide e o papel, em `dominio/papeis.py`.
 FONTE_MCP = "mcp"
-
-
-def pode_elevar(fonte: Optional[str]) -> bool:
-    """Quem esta chamando pode AUMENTAR a confianca na IA?
-
-    Nao: a propria IA. Promover autonomia e ativar preferencia sao as duas
-    acoes que mudam o que ela faz sozinha, entao precisam vir de fora do MCP
-    -- na pratica, da tela.
-
-    Antes isso era garantido so pelo `ask` no .claude/settings.json, que e
-    configuracao do CLIENTE: quem chamasse a API direto passava por cima.
-    Descer confianca segue liberado para todo mundo, inclusive para a IA.
-    """
-    return fonte != FONTE_MCP

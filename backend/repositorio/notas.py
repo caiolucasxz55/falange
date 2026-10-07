@@ -16,6 +16,10 @@ async def criar(session: AsyncSession, dados: dict) -> Nota:
     return nota
 
 
+async def buscar(session: AsyncSession, nota_id: int) -> Optional[Nota]:
+    return await session.get(Nota, nota_id)
+
+
 async def listar(
     session: AsyncSession,
     resolvida: Optional[bool] = None,

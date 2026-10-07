@@ -18,6 +18,9 @@ class TaskOut(BaseModel):
     estimativa: Estimativa
     bloco: Bloco
     responsavel: Optional[str] = None
+    # O id e o fato; o texto acima e o rotulo de quem nao tem conta.
+    responsavel_id: Optional[int] = None
+    autor_id: Optional[int] = None
     bloqueada_por: Optional[int] = None
     status: Status
     prioridade: Prioridade

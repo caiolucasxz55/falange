@@ -9,8 +9,8 @@ from backend.seguranca.token import (
     CAMINHOS_LIVRES,
     FONTE_MCP,
     PREFIXO,
+    entrada_permitida,
     exige_token,
-    pode_elevar,
     token_valido,
 )
 
@@ -18,7 +18,7 @@ __all__ = [
     "CAMINHOS_LIVRES",
     "FONTE_MCP",
     "PREFIXO",
+    "entrada_permitida",
     "exige_token",
-    "pode_elevar",
     "token_valido",
 ]

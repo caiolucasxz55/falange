@@ -19,6 +19,7 @@ class DecisaoOut(BaseModel):
     aceita: bool
     motivo: Optional[str] = None
     responsavel: Optional[str] = None
+    autor_id: Optional[int] = None
     task_id: Optional[int] = None
     criada_em: datetime
 

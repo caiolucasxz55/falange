@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.db import get_session
+from backend.dominio.papeis import acoes_para_campos
 from backend.models import Bloco, Origem, Prioridade, Status
 from backend.repositorio import tasks as repo
+from backend.seguranca.dependencias import Chamador, obter_chamador
 from backend.schemas import (
     Bloqueio,
     Carga,
@@ -29,13 +31,20 @@ rotas = APIRouter(tags=["tasks"])
 @rotas.post("/tasks", response_model=TaskOut, status_code=201)
 async def criar_task(
     nova: TaskNova,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
     x_falange_fonte: Optional[str] = Header(default=None),
 ):
+    chamador.exigir("criar_task")
     dados = nova.model_dump()
+    for acao in sorted(acoes_para_campos(dados, chamador.nome)):
+        chamador.exigir(acao)
+
     # Quem escreveu a task sai do header, nao do corpo: autoria declarada
     # pelo cliente seria forjavel e envenenaria calibracao e perfil.
     dados["origem"] = Origem.ia if x_falange_fonte == "mcp" else Origem.humano
+    # Agora da para dizer QUEM, e nao so se foi IA ou humano.
+    dados["autor_id"] = chamador.id
     return await repo.criar(session, dados)
 
 
@@ -45,8 +54,10 @@ async def listar_tasks(
     status: Optional[Status] = None,
     responsavel: Optional[str] = None,
     prioridade: Optional[Prioridade] = None,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
 ):
+    chamador.exigir("ler")
     return await repo.listar(
         session,
         bloco=bloco,
@@ -57,7 +68,11 @@ async def listar_tasks(
 
 
 @rotas.get("/tasks/contagem-por-bloco")
-async def contar_tasks_por_bloco(session: AsyncSession = Depends(get_session)):
+async def contar_tasks_por_bloco(
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
+    chamador.exigir("ler")
     return await repo.contagem_por_bloco(session)
 
 
@@ -66,9 +81,11 @@ async def carga(
     bloco: Optional[Bloco] = None,
     responsavel: Optional[str] = None,
     limite: Optional[int] = Query(None, description="default: LIMITE_SOBRECARGA do .env"),
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
 ):
     """Quantas tasks abertas um bloco ou uma pessoa carrega, e se passou do limite."""
+    chamador.exigir("ler")
     if bloco is None and responsavel is None:
         raise HTTPException(400, "informe bloco ou responsavel")
 
@@ -84,7 +101,12 @@ async def carga(
 
 
 @rotas.get("/tasks/{task_id}", response_model=TaskOut)
-async def buscar_task(task_id: int, session: AsyncSession = Depends(get_session)):
+async def buscar_task(
+    task_id: int,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
+    chamador.exigir("ler")
     task = await repo.buscar(session, task_id)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
@@ -93,8 +115,12 @@ async def buscar_task(task_id: int, session: AsyncSession = Depends(get_session)
 
 @rotas.patch("/tasks/{task_id}/bloqueio", response_model=TaskOut)
 async def marcar_bloqueio(
-    task_id: int, body: Bloqueio, session: AsyncSession = Depends(get_session)
+    task_id: int,
+    body: Bloqueio,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
 ):
+    chamador.exigir("marcar_bloqueio")
     task, erro = await repo.definir_bloqueio(session, task_id, body.bloqueada_por)
     if erro:
         raise HTTPException(404 if "nao encontrada" in erro else 409, erro)
@@ -103,8 +129,12 @@ async def marcar_bloqueio(
 
 @rotas.patch("/tasks/{task_id}/status", response_model=TaskOut)
 async def mudar_status(
-    task_id: int, body: MudancaStatus, session: AsyncSession = Depends(get_session)
+    task_id: int,
+    body: MudancaStatus,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
 ):
+    chamador.exigir("mudar_status_task")
     task = await repo.definir_status(session, task_id, body.status)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
@@ -115,14 +145,19 @@ async def mudar_status(
 async def editar_task(
     task_id: int,
     body: TaskEdicao,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
     # O MCP se identifica; a tela nao manda nada. E assim que o backend
     # sabe se quem corrigiu a task foi a IA ou um humano.
     x_falange_fonte: Optional[str] = Header(default=None),
 ):
+    chamador.exigir("editar_task")
     campos = body.model_dump(exclude_unset=True)
     if not campos:
         raise HTTPException(400, "nenhum campo para alterar")
+    for acao in sorted(acoes_para_campos(campos, chamador.nome)):
+        chamador.exigir(acao)
+
     task = await repo.editar(session, task_id, campos, fonte=x_falange_fonte)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
@@ -132,6 +167,17 @@ async def editar_task(
 # response_class=Response: um 204 nao pode ter corpo, e sem isso o FastAPI
 # ainda manda content-type: application/json, o que faz o navegador abortar.
 @rotas.delete("/tasks/{task_id}", status_code=204, response_class=Response)
-async def apagar_task(task_id: int, session: AsyncSession = Depends(get_session)):
+async def apagar_task(
+    task_id: int,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
+    # Precisa carregar antes de decidir: quem so apaga o proprio precisa do
+    # autor para ser comparado.
+    task = await repo.buscar(session, task_id)
+    if task is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+    chamador.exigir_propria("apagar_task", task.autor_id)
+
     if not await repo.remover(session, task_id):
         raise HTTPException(404, f"task {task_id} nao encontrada")

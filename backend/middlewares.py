@@ -12,7 +12,8 @@ from fastapi.responses import JSONResponse
 
 from backend.config import settings
 from backend.dominio.limite import permitido, segundos_para_liberar
-from backend.seguranca import exige_token, token_valido
+from backend.seguranca.sessao import ler_access
+from backend.seguranca.token import PREFIXO, entrada_permitida, exige_token
 
 # Historico por cliente. Em memoria: morre no restart e nao e compartilhado
 # entre replicas. Suficiente para barrar script, nao para abuso distribuido.
@@ -46,13 +47,23 @@ async def limitar_taxa(request, proxima):
 
 
 async def exigir_token(request, proxima):
-    """Porteiro da API: sem o token certo, nao entra.
+    """Porteiro da API: sem credencial, nao entra.
 
     CORS nao e seguranca: ele so restringe navegador. Qualquer curl alcanca
     a API sem passar por ele, entao a checagem acontece aqui.
+
+    Aceita o token compartilhado OU um access token assinado por nos. So
+    confere a ASSINATURA do JWT: se a sessao ainda vale, se o usuario esta
+    ativo e qual o papel dele e a rota que decide, lendo o banco.
     """
     if exige_token(request.url.path, request.method, settings.api_token):
-        if not token_valido(request.headers.get("authorization"), settings.api_token):
+        cabecalho = request.headers.get("authorization")
+        access_confere = False
+        if settings.jwt_segredo and cabecalho and cabecalho.startswith(PREFIXO):
+            access_confere = (
+                ler_access(cabecalho[len(PREFIXO) :], settings.jwt_segredo) is not None
+            )
+        if not entrada_permitida(cabecalho, settings.api_token, access_confere):
             return JSONResponse({"detail": "token invalido ou ausente"}, status_code=401)
     return await proxima(request)
 

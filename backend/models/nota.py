@@ -18,8 +18,11 @@ class Nota(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     texto: Mapped[str] = mapped_column(Text)
 
-    # Texto simples, igual ao responsavel da task. Multi-usuario e V2.
+    # Mesma ideia do responsavel da task: o texto e o rotulo, o id e o fato.
     autor: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    autor_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Nota pode nascer solta; se a task some, a nota sobrevive sem ela.
     task_id: Mapped[Optional[int]] = mapped_column(

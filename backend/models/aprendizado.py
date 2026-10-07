@@ -34,6 +34,11 @@ class Decisao(Base):
     aceita: Mapped[bool] = mapped_column(Boolean)
     motivo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     responsavel: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    # Quem registrou. Importa para o perfil: saber de QUEM e o habito e o
+    # que separa "o time escolhe P" de "uma pessoa escolhe P".
+    autor_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     task_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("task.id", ondelete="SET NULL"), nullable=True
     )

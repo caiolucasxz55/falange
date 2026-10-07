@@ -23,8 +23,20 @@ class Task(Base):
     estimativa: Mapped[Estimativa] = mapped_column(Enum(Estimativa, name="estimativa"))
     bloco: Mapped[Bloco] = mapped_column(Enum(Bloco, name="bloco"))
 
-    # Texto simples, nao FK para usuario. Multi-usuario/auth e V2.
+    # O texto continua, e nao e legado: e o rotulo de quem nunca virou
+    # conta no Falange (alguem de outro time, um nome escrito a mao). Quando
+    # a pessoa existe como usuario, `responsavel_id` aponta para ela e passa
+    # a ser a verdade; o texto fica como o que a tela mostra.
     responsavel: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    responsavel_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # Quem criou a task. Nulo nas tasks de antes da V2, quando nao havia
+    # usuario para apontar. `origem` diz se foi IA ou humano; isto diz quem.
+    autor_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Auto-referencia: esta task esta travada POR outra task.
     bloqueada_por: Mapped[Optional[int]] = mapped_column(

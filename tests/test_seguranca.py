@@ -53,15 +53,33 @@ def test_sem_segredo_configurado_nada_e_exigido():
     assert not exige_token("/tasks", "GET", "")
 
 
-def test_o_mcp_nao_pode_elevar_confianca():
-    from backend.seguranca import pode_elevar
+# --------------------------------------------------------------------------
+# a porta aceita DUAS credenciais pelo mesmo header
+# --------------------------------------------------------------------------
 
-    assert not pode_elevar("mcp")
+
+def test_token_compartilhado_abre_a_porta():
+    from backend.seguranca import entrada_permitida
+
+    assert entrada_permitida(f"Bearer {SEGREDO}", SEGREDO, False)
 
 
-def test_chamada_de_fora_do_mcp_pode_elevar():
-    from backend.seguranca import pode_elevar
+def test_access_token_valido_abre_a_porta_sem_o_compartilhado():
+    from backend.seguranca import entrada_permitida
 
-    # Sem header = veio da tela, onde esta o humano.
-    assert pode_elevar(None)
-    assert pode_elevar("frontend")
+    # Regressao: a primeira versao conferia so o token compartilhado, e todo
+    # usuario logado levava 401 antes de a rota existir.
+    assert entrada_permitida("Bearer um.jwt.qualquer", SEGREDO, True)
+
+
+def test_sem_nenhuma_das_duas_a_porta_fica_fechada():
+    from backend.seguranca import entrada_permitida
+
+    assert not entrada_permitida("Bearer errado", SEGREDO, False)
+    assert not entrada_permitida(None, SEGREDO, False)
+
+
+def test_sem_segredo_configurado_a_porta_abre_para_qualquer_um():
+    from backend.seguranca import entrada_permitida
+
+    assert entrada_permitida(None, "", False)

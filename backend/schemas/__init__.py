@@ -14,6 +14,17 @@ from backend.schemas.aprendizado import (
 from backend.schemas.configuracao import ConfiguracaoEdicao, ConfiguracaoOut
 from backend.schemas.limites import MAX_DESCRICAO, MAX_JSON_DECISAO, json_cabe
 from backend.schemas.nota import NotaEdicao, NotaNova, NotaOut
+from backend.schemas.usuario import (
+    Email,
+    Eu,
+    Login,
+    Renovacao,
+    SessaoAberta,
+    TrocaDeSenha,
+    UsuarioEdicao,
+    UsuarioNovo,
+    UsuarioOut,
+)
 from backend.schemas.task import (
     Bloqueio,
     Carga,
@@ -43,5 +54,14 @@ __all__ = [
     "TaskEdicao",
     "TaskNova",
     "TaskOut",
+    "Email",
+    "Eu",
+    "Login",
+    "Renovacao",
+    "SessaoAberta",
+    "TrocaDeSenha",
+    "UsuarioEdicao",
+    "UsuarioNovo",
+    "UsuarioOut",
     "json_cabe",
 ]

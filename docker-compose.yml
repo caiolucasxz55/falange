@@ -39,6 +39,12 @@ services:
       # Vazio = API aberta. Preencha em qualquer maquina que o time alcance.
       API_TOKEN: ${API_TOKEN:-}
       LIMITE_POR_MINUTO: ${LIMITE_POR_MINUTO:-300}
+      # Login: sem JWT_SEGREDO, /sessao responde 503 e so o token
+      # compartilhado entra. Pelo menos 32 caracteres.
+      JWT_SEGREDO: ${JWT_SEGREDO:-}
+      JWT_MINUTOS: ${JWT_MINUTOS:-15}
+      SESSAO_DIAS: ${SESSAO_DIAS:-14}
+      EXIGIR_LOGIN: ${EXIGIR_LOGIN:-false}
     ports:
       # 8010 no host: 8000 e 8001 ja estao com outros projetos desta maquina.
       # Dentro da rede do compose o backend continua na 8000.

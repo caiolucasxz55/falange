@@ -22,6 +22,7 @@ from backend.models.enums import (
 )
 from backend.models.nota import Nota
 from backend.models.task import Task
+from backend.models.usuario import Papel, Sessao, Usuario
 
 __all__ = [
     "ABERTAS",
@@ -34,11 +35,14 @@ __all__ = [
     "NivelAutonomia",
     "Nota",
     "Origem",
+    "Papel",
     "OrigemPreferencia",
     "Preferencia",
     "Prioridade",
+    "Sessao",
     "Status",
     "Task",
     "TipoAcao",
     "TipoDecisao",
+    "Usuario",
 ]

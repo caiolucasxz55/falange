@@ -206,6 +206,11 @@ Duas portas, dois segredos, ambos no `.env` (fora do git):
 |---|---|---|
 | `API_TOKEN` | a API do backend | o MCP, e o proxy do frontend |
 | `SSE_TOKEN` | o servidor MCP SSE (a porta do time) | o client MCP de cada pessoa |
+| `JWT_SEGREDO` | assina o access token do login | o backend (ninguem apresenta) |
+
+`JWT_SEGREDO` precisa de pelo menos 32 caracteres e o backend RECUSA subir
+com menos: HMAC-SHA256 com chave curta e fraca (RFC 7518). Vazio desliga o
+login, e `/sessao` responde 503. Trocar o valor desloga todo mundo.
 
 Vazio = porta aberta, e o backend avisa no log ao subir. Isso so e aceitavel
 em dev local. Gere com:
@@ -230,11 +235,11 @@ O token diz quem pode usar; estas regras dizem o que cada lado pode fazer:
 
 - **`origem` da task sai do header**, nunca do corpo. Autoria da IA nao e
   declaravel pelo cliente, senao daria para envenenar calibracao e perfil.
-- **Promover autonomia e ativar preferencia exigem chamada de fora do MCP.**
-  A IA pode propor; quem sobe a confianca e o humano, pela tela. Antes isso
-  dependia do `ask` no `.claude/settings.json`, que e configuracao do cliente
-  e nao protege a API.
-- **Descer confianca e livre** para os dois lados, de proposito.
+- **Promover autonomia e ativar preferencia exigem papel.** A IA pode
+  propor; quem sobe a confianca e admin ou lead. Antes isso dependia do
+  `ask` no `.claude/settings.json`, que e configuracao do CLIENTE e nao
+  protege a API; depois passou a depender do header; hoje e papel.
+- **Descer confianca e livre** para quem trabalha, inclusive para a IA.
 - **Tamanhos com teto**: descricao 5000 chars, JSON de decisao 4000,
   arquivo lido 1 MB. Sem isso, Text e JSONB aceitam o que vier.
 - **Limite de requisicoes** por cliente por minuto (`LIMITE_POR_MINUTO`,
@@ -242,10 +247,66 @@ O token diz quem pode usar; estas regras dizem o que cada lado pode fazer:
   entre replicas, e atras do proxy do frontend o time conta como um cliente
   so.
 
-**O que isto NAO e:** autenticacao de pessoa. O token diz "este cliente pode
-usar a API", nunca "quem e voce". Nada aqui e atribuivel a ninguem, `autor` e
-`responsavel` seguem texto livre, e qualquer um com o token faz tudo o que
-qualquer outro faz. Identidade por usuario e V2.
+### Identidade por pessoa e papeis
+
+O token acima diz "este cliente pode usar a API". Quem e voce vem do login.
+
+**Login:** `POST /sessao` troca email e senha por um par de tokens. O
+**access** e um JWT curto (`JWT_MINUTOS`, padrao 15) e o **refresh** e um
+texto opaco guardado no banco -- so o hash dele. A senha usa argon2id.
+
+Por que os dois: JWT nao revoga. Assinatura valida vale ate expirar, entao
+logout, usuario removido ou papel rebaixado continuariam valendo pelo resto
+da validade. Com a tabela `sessao`, a API confere a cada request se a sessao
+ainda vale, e **o papel vem do banco, nao do token** -- rebaixar alguem tem
+efeito no request seguinte. `POST /sessao/renovar` gira o refresh: um refresh
+roubado vale uma vez so.
+
+**Os quatro papeis humanos** sao uma escada, e `dominio/papeis.py` tem a
+matriz inteira (`GET /eu` devolve o que o papel alcanca, para a tela nao
+desenhar botao que vai dar 403):
+
+| | admin | lead | dev | leitor |
+|---|---|---|---|---|
+| ler | sim | sim | sim | sim |
+| criar e editar task | sim | sim | sim | - |
+| mudar status, bloquear | sim | sim | sim | - |
+| definir prioridade | sim | sim | - | - |
+| atribuir responsavel | sim | sim | so a si | - |
+| apagar task e nota | sim | sim | so as suas | - |
+| promover autonomia, ativar preferencia | sim | sim | - | - |
+| configuracao da plataforma | sim | - | - | - |
+| gerir usuarios | sim | - | - | - |
+
+Duas folgas deliberadas, para a regra nao virar burocracia: gravar a
+prioridade PADRAO nao conta como "definir prioridade" (senao um dev nao
+abriria task), e atribuir a SI MESMO nao conta como "atribuir responsavel"
+(pegar trabalho e diferente de distribuir).
+
+**`falange-ia` e o quinto papel**, e fica fora da escada: e a conta de
+servico que o MCP usa, sem senha, que entra pelo `API_TOKEN`. Ela trabalha
+como um dev e nao aumenta a confianca em si mesma. E o que torna as travas
+regra de papel em vez de checagem de header.
+
+**Autor e responsavel viraram fato.** `task.autor_id`, `task.responsavel_id`,
+`nota.autor_id` e `decisao.autor_id` apontam para `usuario`. As colunas de
+texto ficam, e nao sao legado: sao o rotulo de quem nunca virou conta. O
+backfill da migration 0007 liga o que casa por nome e aponta as tasks com
+`origem = 'ia'` para a conta de servico; nome solto nao gera usuario
+inventado.
+
+**Nao existe DELETE de usuario.** Apagar deixaria as tasks e decisoes da
+pessoa apontando para ninguem. `PATCH /usuarios/{id}` com `ativo: false`
+corta o acesso na hora e preserva o historico, e
+`DELETE /usuarios/{id}/sessoes` derruba so as sessoes (o caso do notebook
+perdido). O ultimo admin ativo nao pode se rebaixar nem se desativar.
+
+**Primeiro admin (bootstrap):** com `EXIGIR_LOGIN=false`, quem chega com o
+`API_TOKEN` e sem o header do MCP e tratado como admin sem login -- e o
+comportamento de antes da V2. Use isso para criar a primeira conta admin por
+`POST /usuarios` e so depois vire `EXIGIR_LOGIN=true`. Com `true` e sem
+nenhum admin no banco, ninguem entra e nao ha como criar o primeiro pela
+API.
 
 ## Conectar o Claude
 
@@ -316,9 +377,10 @@ Os dois transportes ganham a tool automaticamente.
 - A imagem e `slim`: nao tem `curl` nem `wget`. O healthcheck usa `python
   -c urllib.request`.
 
-## Fora do escopo do V1
+## Fora do escopo
 
-Design final do frontend (o board atual e funcional, nao definitivo), RAG
-com embeddings sobre a documentacao (V1 le a pasta inteira ate um limite),
-gamificacao/war room, autenticacao e multi-usuario. `responsavel`
-e texto simples de proposito - vira FK para usuario no V2.
+Entregue na V2: autenticacao por pessoa, papeis e identidade de autor.
+
+Ainda fora: RAG com embeddings sobre a documentacao (hoje le a pasta inteira
+ate um limite), gamificacao/war room, convite por email e recuperacao de
+senha (um admin cria a conta e entrega a senha).

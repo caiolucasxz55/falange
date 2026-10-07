@@ -17,6 +17,7 @@ from backend.dominio.priorizacao import ranquear
 from backend.models import Bloco, Status
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import TaskOut
+from backend.seguranca.dependencias import Chamador, obter_chamador
 
 rotas = APIRouter(tags=["analise"])
 
@@ -26,6 +27,7 @@ async def priorizacao(
     responsavel: Optional[str] = None,
     bloco: Optional[Bloco] = None,
     limite: int = Query(5, ge=1, le=50),
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
 ):
     """Ranking explicado das tasks que dao para pegar agora.
@@ -34,6 +36,7 @@ async def priorizacao(
     filtrar antes quebraria a conta de quem destrava quem. O filtro de bloco
     se aplica depois, so nas sugestoes.
     """
+    chamador.exigir("ler")
     tasks = [
         TaskOut.model_validate(t).model_dump()
         for t in await repo_tasks.listar(session)
@@ -58,10 +61,14 @@ async def priorizacao(
 
 
 @rotas.get("/calibracao")
-async def calibracao(session: AsyncSession = Depends(get_session)):
+async def calibracao(
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
     """Compara a estimativa com a duracao real das tasks ja concluidas.
 
     So entram tasks com os dois marcos de tempo; o resto nao da para medir.
     """
+    chamador.exigir("ler")
     concluidas = await repo_tasks.listar(session, status=Status.concluida)
     return calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])

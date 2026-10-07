@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_session
@@ -19,51 +19,62 @@ from backend.schemas import (
     PreferenciaOut,
     TaskOut,
 )
-from backend.seguranca import pode_elevar
+from backend.seguranca.dependencias import Chamador, obter_chamador
 
 rotas = APIRouter(tags=["aprendizado"])
 
 
 @rotas.post("/decisoes", response_model=DecisaoOut, status_code=201)
 async def registrar_decisao(
-    nova: DecisaoNova, session: AsyncSession = Depends(get_session)
+    nova: DecisaoNova,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
 ):
+    chamador.exigir("registrar_decisao")
     if nova.task_id is not None and await repo_tasks.buscar(session, nova.task_id) is None:
         raise HTTPException(404, f"task {nova.task_id} nao encontrada")
-    return await repo.criar_decisao(session, nova.model_dump())
+    return await repo.criar_decisao(
+        session, {**nova.model_dump(), "autor_id": chamador.id}
+    )
 
 
 @rotas.get("/decisoes", response_model=list[DecisaoOut])
 async def listar_decisoes(
     tipo: Optional[TipoDecisao] = None,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
 ):
+    chamador.exigir("ler")
     return await repo.listar_decisoes(session, tipo=tipo)
 
 
 @rotas.post("/preferencias", response_model=PreferenciaOut, status_code=201)
 async def registrar_preferencia(
     nova: PreferenciaNova,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
-    x_falange_fonte: Optional[str] = Header(default=None),
 ):
     """Explicita nasce ativa; inferida nasce inativa e espera confirmacao.
 
-    Nascer ativa exige vir de fora do MCP: a IA nao cria regra que ela mesma
-    vai obedecer. Pelo MCP, qualquer preferencia nasce inativa e espera um
-    humano confirmar na tela.
+    Nascer ativa exige o papel de quem pode ATIVAR: a IA nao cria regra que
+    ela mesma vai obedecer, e um dev tambem nao liga regra para o time.
+    Nos dois casos a preferencia nasce inativa e espera confirmacao na tela.
     """
+    chamador.exigir("criar_preferencia")
     dados = nova.model_dump()
-    dados["ativa"] = (
-        nova.origem is OrigemPreferencia.explicita and pode_elevar(x_falange_fonte)
+    dados["ativa"] = nova.origem is OrigemPreferencia.explicita and chamador.pode(
+        "ativar_preferencia"
     )
     return await repo.criar_preferencia(session, dados)
 
 
 @rotas.get("/preferencias", response_model=list[PreferenciaOut])
 async def listar_preferencias(
-    ativa: Optional[bool] = None, session: AsyncSession = Depends(get_session)
+    ativa: Optional[bool] = None,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
 ):
+    chamador.exigir("ler")
     return await repo.listar_preferencias(session, ativa=ativa)
 
 
@@ -71,15 +82,18 @@ async def listar_preferencias(
 async def definir_preferencia(
     preferencia_id: int,
     body: PreferenciaEdicao,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
-    x_falange_fonte: Optional[str] = Header(default=None),
 ):
-    """Ativa (confirmar) ou desativa. Desativar e sempre permitido."""
-    if body.ativa and not pode_elevar(x_falange_fonte):
-        raise HTTPException(
-            403,
-            "ativar preferencia so fora do MCP: peca ao dev para confirmar na tela",
-        )
+    """Ativa (confirmar) ou desativa.
+
+    Desativar e livre para quem registra preferencia: desligar uma regra nao
+    aumenta a confianca em ninguem. Ativar exige papel.
+    """
+    if body.ativa:
+        chamador.exigir("ativar_preferencia")
+    else:
+        chamador.exigir("criar_preferencia")
     preferencia = await repo.definir_preferencia_ativa(
         session, preferencia_id, body.ativa
     )
@@ -89,8 +103,12 @@ async def definir_preferencia(
 
 
 @rotas.get("/perfil")
-async def perfil(session: AsyncSession = Depends(get_session)):
+async def perfil(
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
     """O que o Falange aprendeu: calibracao, aceitacao, correcoes e padroes."""
+    chamador.exigir("ler")
     decisoes = [
         DecisaoOut.model_validate(d).model_dump()
         for d in await repo.listar_decisoes(session)

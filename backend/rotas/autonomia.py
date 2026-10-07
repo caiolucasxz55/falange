@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_session
@@ -11,14 +11,18 @@ from backend.dominio.autonomia import montar as montar_autonomia
 from backend.models import TipoAcao, TipoDecisao
 from backend.repositorio import aprendizado as repo
 from backend.schemas import AutonomiaEdicao, DecisaoOut
-from backend.seguranca import pode_elevar
+from backend.seguranca.dependencias import Chamador, obter_chamador
 
 rotas = APIRouter(tags=["autonomia"])
 
 
 @rotas.get("/autonomia")
-async def ver_autonomia(session: AsyncSession = Depends(get_session)):
+async def ver_autonomia(
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
     """Nivel de cada acao e se o historico ja permite promover."""
+    chamador.exigir("ler")
     niveis = await repo.ler_autonomia(session)
     decisoes_por_tipo: dict[str, list[dict]] = {}
     for tipo in {t for t in DECISAO_POR_ACAO.values() if t}:
@@ -33,16 +37,17 @@ async def ver_autonomia(session: AsyncSession = Depends(get_session)):
 async def definir_autonomia(
     tipo_acao: TipoAcao,
     body: AutonomiaEdicao,
+    chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
-    x_falange_fonte: Optional[str] = Header(default=None),
 ):
-    """Muda o nivel de uma acao. Subir e decisao do humano, nunca da IA."""
+    """Muda o nivel de uma acao.
+
+    Subir exige papel; descer e livre para quem trabalha, inclusive para a
+    IA. A assimetria e a mesma de sempre: perder confianca e seguro.
+    """
     atuais = await repo.ler_autonomia(session)
     sobe = e_promocao(atuais.get(tipo_acao.value, "perguntar"), body.nivel.value)
-    if sobe and not pode_elevar(x_falange_fonte):
-        raise HTTPException(
-            403,
-            "promover autonomia so fora do MCP: peca ao dev para subir na tela",
-        )
+    chamador.exigir("promover_autonomia" if sobe else "rebaixar_autonomia")
+
     niveis = await repo.definir_autonomia(session, tipo_acao, body.nivel)
     return {"acoes": niveis}

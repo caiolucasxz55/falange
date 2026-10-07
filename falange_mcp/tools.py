@@ -384,8 +384,13 @@ def ver_perfil() -> dict:
 def registrar_preferencia(descricao: str, origem: str = "explicita") -> dict:
     """Guarda uma regra que o time quer que a IA siga.
 
-    `explicita` (alguem pediu) nasce ativa. `inferida` (padrao que voce
-    detectou) nasce INATIVA e so vale depois de `confirmar_preferencia`.
+    Vinda de VOCE, qualquer preferencia nasce INATIVA: a API nao deixa a IA
+    ligar regra que ela mesma vai obedecer. Registre e peca ao dev para
+    confirmar no painel "O que o Falange aprendeu" -- `confirmar_preferencia`
+    tambem e recusada por aqui.
+
+    `origem`: `explicita` (alguem pediu) ou `inferida` (padrao que voce
+    detectou nos dados).
     """
     erro = _checar(origem, ORIGENS_PREFERENCIA, "origem")
     if erro:
@@ -402,7 +407,12 @@ def listar_preferencias(ativa: bool | None = None) -> list | dict:
 
 
 def confirmar_preferencia(preferencia_id: int) -> dict:
-    """Ativa uma preferencia inferida. So com um "sim" explicito do dev."""
+    """Ativa uma preferencia. A API recusa isto vindo de voce.
+
+    Existe para a mensagem de recusa ser clara em vez de a tool desaparecer:
+    ligar regra e do humano, no painel. Com um "sim" explicito do dev, peca
+    que ele confirme na tela.
+    """
     return _pedir("PATCH", f"/preferencias/{preferencia_id}", json={"ativa": True})
 
 

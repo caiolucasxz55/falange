@@ -12,6 +12,7 @@ class NotaOut(BaseModel):
     id: int
     texto: str
     autor: Optional[str] = None
+    autor_id: Optional[int] = None
     task_id: Optional[int] = None
     resolvida: bool
     criada_em: datetime

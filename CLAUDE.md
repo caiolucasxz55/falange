@@ -69,7 +69,7 @@ pergunte UMA vez por sessao, no fim da tarefa, se aquilo deve virar regra
 ("percebi que voces X; posso assumir isso daqui pra frente?"). Com um sim
 explicito, chame `registrar_preferencia(origem="inferida")` -- ela nasce
 INATIVA -- e peca ao dev para confirmar no painel "O que o Falange aprendeu".
-A API recusa ativacao vinda do MCP: voce nao liga a regra que vai obedecer.
+A API recusa ativacao vinda de voce: nao se liga a regra que se vai obedecer.
 Sem sim explicito, nao registre e nao insista.
 
 Correcao humana nao precisa de tool: quando alguem muda estimativa,
@@ -81,9 +81,9 @@ Nao chame `registrar_decisao` para isso.
 `ver_autonomia` diz quanto voce pode fazer sozinho em cada uma das quatro
 acoes. Consulte antes de agir e siga o nivel.
 
-Promover e do humano: a API recusa promocao vinda do MCP. Ofereca uma vez no
-fim da tarefa, citando o `motivo`, e peca para ele subir no painel "Autonomia
-da IA". Rebaixar voce pode a qualquer momento com `definir_autonomia`, e o
+Promover e do humano: a API recusa promocao vinda de voce, por papel.
+Ofereca uma vez no fim da tarefa, citando o `motivo`, e peca para um admin ou
+lead subir no painel "Autonomia da IA". Rebaixar voce pode a qualquer momento com `definir_autonomia`, e o
 backend rebaixa sozinho quando o humano discorda de algo feito no
 `automatico`.
 
@@ -97,13 +97,25 @@ de mais gente, sem virar task bloqueada so para ser discutida. `listar_notas`
 le, `resolver_nota` fecha sem apagar, `editar_nota` corrige (e reabre, com
 `resolvida=false`) e `apagar_nota` remove de vez.
 
-## Autenticacao
+## Autenticacao e papeis
 
 O MCP le `API_TOKEN` do `.env` da raiz (caminho absoluto, porque o stdio nao
 herda o ambiente) e manda em toda chamada. Se uma tool devolver "backend
 recusou o token", o `.env` nao bate com o do backend.
 
 Nunca escreva token no `.mcp.json`: ele e versionado.
+
+**Voce e a conta de servico `falange-ia`**, com papel proprio. Trabalha como
+um dev: cria, edita, bloqueia, muda status, registra decisao e preferencia,
+e rebaixa autonomia. NAO ativa preferencia, NAO promove autonomia, NAO mexe
+em configuracao nem em usuario -- a API recusa com 403 e a tool devolve
+`{"erro": "a IA nao pode '...': peca ao dev para fazer isso na tela"}`.
+
+Isso nao e falha: e o desenho. Ao receber esse erro, nao tente outro caminho
+-- peca ao dev para fazer na tela, e siga com o resto.
+
+As tasks que voce cria saem com `autor_id` apontando para essa conta. Nao
+tente declarar autoria: `origem` e `autor_id` sao derivados pelo backend.
 
 ## Codigo
 
@@ -113,6 +125,9 @@ Nunca escreva token no `.mcp.json`: ele e versionado.
   `repositorio/`, conta e julgamento em `dominio/` (modulo puro, sem sessao
   e sem HTTP), tabela em `models/`, contrato em `schemas/`. `main.py` so
   monta o app -- nao ponha rota nem regra nele.
+- Permissao nova: entre em `ACOES` e na matriz de `dominio/papeis.py`, e a
+  rota chama `chamador.exigir("acao")`. Nunca escreva `if papel == "admin"`
+  numa rota -- regra espalhada diverge, e o teste percorre a matriz.
 - A dependencia aponta so para baixo: `rotas/` chama `repositorio/` e
   `dominio/`; `repositorio/` nao levanta `HTTPException` (devolve `None`,
   `False` ou `(valor, erro)`); `dominio/` nao importa nenhum dos dois.

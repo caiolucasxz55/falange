@@ -25,5 +25,27 @@ class Settings(BaseSettings):
     # do frontend o time inteiro conta como um cliente so.
     limite_por_minuto: int = 300
 
+    # Segredo que assina o access token. Vazio = login desligado (nao da
+    # para emitir token sem ele). Trocar este valor desloga todo mundo.
+    jwt_segredo: str = ""
+
+    # Validade do access token. Curta de proposito: e o unico intervalo em
+    # que um token ja emitido sobrevive a uma troca de segredo. Revogacao de
+    # sessao e de papel e imediata, porque a API le o banco a cada request.
+    jwt_minutos: int = 15
+
+    # Validade do refresh. Passado isso, login de novo.
+    sessao_dias: int = 14
+
+    # true: toda chamada precisa de login (ou do token do MCP). false: quem
+    # chega com o token compartilhado e sem o header do MCP e tratado como
+    # admin sem login, que e o comportamento de antes da V2. Serve para a
+    # transicao: vira true quando a tela tiver login.
+    exigir_login: bool = False
+
+
+# HMAC-SHA256 com chave curta e fraca (RFC 7518, secao 3.2), e o pyjwt
+# avisa. Barrar na subida evita descobrir isso em producao.
+MIN_JWT_SEGREDO = 32
 
 settings = Settings()
