@@ -5,6 +5,8 @@ em chamadas do crud. Os servidores MCP falam com o mundo por AQUI, nunca
 direto com o banco -- uma fonte de verdade so.
 """
 
+import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -14,16 +16,18 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import crud
-from backend.autonomia import DECISAO_POR_ACAO
+from backend.autonomia import DECISAO_POR_ACAO, e_promocao
 from backend.autonomia import montar as montar_autonomia
 from backend.calibracao import calibrar
-from backend.seguranca import exige_token, token_valido
+from backend.limite import permitido, segundos_para_liberar
+from backend.seguranca import exige_token, pode_elevar, token_valido
 from backend.perfil import montar as montar_perfil
 from backend.priorizacao import ranquear
 from backend.db import get_session
 from backend.models import (
     Bloco,
     NivelAutonomia,
+    Origem,
     OrigemPreferencia,
     Prioridade,
     Status,
@@ -62,6 +66,35 @@ app.add_middleware(
 )
 
 
+# Historico por cliente. Em memoria: morre no restart e nao e compartilhado
+# entre replicas. Suficiente para barrar script, nao para abuso distribuido.
+_HISTORICO: dict[str, list[float]] = defaultdict(list)
+
+
+@app.middleware("http")
+async def limitar_taxa(request, proxima):
+    """Teto de requisicoes por cliente, para ninguem encher o banco em rajada.
+
+    Atencao: atras do proxy do frontend, TODA a tela chega com um IP so, e o
+    time inteiro divide o mesmo teto.
+    """
+    if settings.limite_por_minuto > 0 and request.url.path not in ("/health",):
+        cliente = request.client.host if request.client else "desconhecido"
+        agora = time.monotonic()
+        passa, historico = permitido(
+            _HISTORICO[cliente], agora, maximo=settings.limite_por_minuto
+        )
+        _HISTORICO[cliente] = historico
+        if not passa:
+            espera = segundos_para_liberar(historico, agora)
+            return JSONResponse(
+                {"detail": f"limite de requisicoes atingido; tente em {espera}s"},
+                status_code=429,
+                headers={"Retry-After": str(espera or 60)},
+            )
+    return await proxima(request)
+
+
 @app.middleware("http")
 async def exigir_token(request, proxima):
     """Porteiro da API: sem o token certo, nao entra.
@@ -88,8 +121,16 @@ async def health(session: AsyncSession = Depends(get_session)):
 
 
 @app.post("/tasks", response_model=TaskOut, status_code=201)
-async def criar_task(nova: TaskNova, session: AsyncSession = Depends(get_session)):
-    return await crud.criar(session, nova.model_dump())
+async def criar_task(
+    nova: TaskNova,
+    session: AsyncSession = Depends(get_session),
+    x_falange_fonte: Optional[str] = Header(default=None),
+):
+    dados = nova.model_dump()
+    # Quem escreveu a task sai do header, nao do corpo: autoria declarada
+    # pelo cliente seria forjavel e envenenaria calibracao e perfil.
+    dados["origem"] = Origem.ia if x_falange_fonte == "mcp" else Origem.humano
+    return await crud.criar(session, dados)
 
 
 @app.get("/tasks", response_model=list[TaskOut])
@@ -347,11 +388,20 @@ async def listar_decisoes(
 
 @app.post("/preferencias", response_model=PreferenciaOut, status_code=201)
 async def registrar_preferencia(
-    nova: PreferenciaNova, session: AsyncSession = Depends(get_session)
+    nova: PreferenciaNova,
+    session: AsyncSession = Depends(get_session),
+    x_falange_fonte: Optional[str] = Header(default=None),
 ):
-    """Explicita nasce ativa; inferida nasce inativa e espera confirmacao."""
+    """Explicita nasce ativa; inferida nasce inativa e espera confirmacao.
+
+    Nascer ativa exige vir de fora do MCP: a IA nao cria regra que ela mesma
+    vai obedecer. Pelo MCP, qualquer preferencia nasce inativa e espera um
+    humano confirmar na tela.
+    """
     dados = nova.model_dump()
-    dados["ativa"] = nova.origem is OrigemPreferencia.explicita
+    dados["ativa"] = (
+        nova.origem is OrigemPreferencia.explicita and pode_elevar(x_falange_fonte)
+    )
     return await crud.criar_preferencia(session, dados)
 
 
@@ -367,8 +417,14 @@ async def definir_preferencia(
     preferencia_id: int,
     body: PreferenciaEdicao,
     session: AsyncSession = Depends(get_session),
+    x_falange_fonte: Optional[str] = Header(default=None),
 ):
     """Ativa (confirmar) ou desativa. Desativar e sempre permitido."""
+    if body.ativa and not pode_elevar(x_falange_fonte):
+        raise HTTPException(
+            403,
+            "ativar preferencia so fora do MCP: peca ao dev para confirmar na tela",
+        )
     preferencia = await crud.definir_preferencia_ativa(
         session, preferencia_id, body.ativa
     )
@@ -416,7 +472,15 @@ async def definir_autonomia(
     tipo_acao: TipoAcao,
     body: AutonomiaEdicao,
     session: AsyncSession = Depends(get_session),
+    x_falange_fonte: Optional[str] = Header(default=None),
 ):
     """Muda o nivel de uma acao. Subir e decisao do humano, nunca da IA."""
+    atuais = await crud.ler_autonomia(session)
+    sobe = e_promocao(atuais.get(tipo_acao.value, "perguntar"), body.nivel.value)
+    if sobe and not pode_elevar(x_falange_fonte):
+        raise HTTPException(
+            403,
+            "promover autonomia so fora do MCP: peca ao dev para subir na tela",
+        )
     niveis = await crud.definir_autonomia(session, tipo_acao, body.nivel)
     return {"acoes": niveis}

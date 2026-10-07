@@ -21,5 +21,9 @@ class Settings(BaseSettings):
     # preencha: sem isso, quem chega na porta cria e apaga task.
     api_token: str = ""
 
+    # Teto de requisicoes por cliente por minuto; 0 desliga. Atras do proxy
+    # do frontend o time inteiro conta como um cliente so.
+    limite_por_minuto: int = 300
+
 
 settings = Settings()

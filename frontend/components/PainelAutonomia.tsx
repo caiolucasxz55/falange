@@ -53,7 +53,7 @@ export function PainelAutonomia() {
     };
   }, [versao]);
 
-  function rebaixar(acao: string, nivel: NivelAutonomia) {
+  function mudar(acao: string, nivel: NivelAutonomia) {
     setOcupado(true);
     setErro(null);
     definirAutonomia(acao, nivel)
@@ -68,8 +68,9 @@ export function PainelAutonomia() {
     <section className="mt-4 rounded border border-gray-200 bg-white p-4">
       <h2 className="text-lg font-semibold text-gray-900">Autonomia da IA</h2>
       <p className="mt-1 text-xs text-gray-500">
-        Rebaixar e um clique. Subir so na conversa com a IA, com um sim seu.
-        Apagar task ou nota nunca entra aqui.
+        Promover so daqui: a API recusa promocao vinda do MCP, entao a IA
+        pode pedir, mas quem sobe a confianca e voce. Rebaixar qualquer um
+        faz, inclusive ela. Apagar task ou nota nunca entra aqui.
       </p>
 
       {erro && (
@@ -90,7 +91,7 @@ export function PainelAutonomia() {
             const abaixo = indice > 0 ? dados.niveis[indice - 1] : null;
             return (
               <li key={acao} className="rounded border border-gray-200 p-2">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 [&>button:first-of-type]:ml-auto">
                   <span className="text-xs font-medium text-gray-800">
                     {ROTULO_ACAO[acao] ?? acao}
                   </span>
@@ -99,12 +100,22 @@ export function PainelAutonomia() {
                   >
                     {ROTULO_NIVEL[estado.nivel]}
                   </span>
+                  {estado.pode && estado.proximo_nivel && (
+                    <button
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => mudar(acao, estado.proximo_nivel!)}
+                      className="ml-auto rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      Promover para {ROTULO_NIVEL[estado.proximo_nivel]}
+                    </button>
+                  )}
                   {abaixo && (
                     <button
                       type="button"
                       disabled={ocupado}
-                      onClick={() => rebaixar(acao, abaixo)}
-                      className="ml-auto rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      onClick={() => mudar(acao, abaixo)}
+                      className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
                       Rebaixar para {ROTULO_NIVEL[abaixo]}
                     </button>

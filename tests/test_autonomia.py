@@ -165,3 +165,14 @@ def test_marcar_bloqueio_nunca_promove_por_falta_de_historico():
     saida = montar({}, {"estimativa": [decisao() for _ in range(JANELA)]})
 
     assert saida["acoes"]["marcar_bloqueio"]["pode"] is False
+
+
+def test_e_promocao_so_quando_sobe_a_escada():
+    from backend.autonomia import e_promocao
+
+    assert e_promocao("perguntar", "confirmar_em_lote")
+    assert e_promocao("confirmar_em_lote", "automatico")
+    assert not e_promocao("automatico", "perguntar")
+    assert not e_promocao("perguntar", "perguntar")
+    # Nivel desconhecido conta como promocao: na duvida, exige o humano.
+    assert e_promocao("perguntar", "deus")

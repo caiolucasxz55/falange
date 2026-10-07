@@ -1,9 +1,10 @@
 """Contratos de entrada e saida da API."""
 
+import json
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.models import (
     Bloco,
@@ -16,6 +17,21 @@ from backend.models import (
     TipoAcao,
     TipoDecisao,
 )
+
+
+# Teto da descricao. O banco e Text (ilimitado), entao sem isto um loop
+# enche o disco. Folgado para texto humano, apertado para abuso.
+MAX_DESCRICAO = 5000
+
+# Teto do JSON de uma decisao, serializado. Mesma razao: JSONB nao tem limite.
+MAX_JSON_DECISAO = 4000
+
+
+def _json_cabe(valor: dict, limite: int = MAX_JSON_DECISAO) -> dict:
+    tamanho = len(json.dumps(valor, default=str))
+    if tamanho > limite:
+        raise ValueError(f"json com {tamanho} chars (maximo {limite})")
+    return valor
 
 
 class TaskOut(BaseModel):
@@ -39,20 +55,21 @@ class TaskOut(BaseModel):
 
 class TaskNova(BaseModel):
     titulo: str = Field(min_length=1, max_length=120)
-    descricao: str = ""
+    descricao: str = Field(default="", max_length=MAX_DESCRICAO)
     estimativa: Estimativa
     bloco: Bloco
     prioridade: Prioridade = Prioridade.media
     responsavel: Optional[str] = Field(default=None, max_length=80)
-    # So o MCP manda `ia`; pela tela a task nasce humana.
-    origem: Origem = Origem.humano
+    # `origem` NAO entra aqui: e derivada do header X-Falange-Fonte pelo
+    # backend. Deixar o cliente declarar quem escreveu a task permitiria
+    # forjar autoria da IA e envenenar a calibracao e o perfil.
 
 
 class TaskEdicao(BaseModel):
     """Edicao parcial: so os campos enviados sao alterados."""
 
     titulo: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    descricao: Optional[str] = None
+    descricao: Optional[str] = Field(default=None, max_length=MAX_DESCRICAO)
     estimativa: Optional[Estimativa] = None
     bloco: Optional[Bloco] = None
     prioridade: Optional[Prioridade] = None
@@ -133,6 +150,8 @@ class DecisaoNova(BaseModel):
     tipo: TipoDecisao
     sugerido: dict = Field(default_factory=dict)
     escolhido: dict = Field(default_factory=dict)
+
+    _limitar = field_validator("sugerido", "escolhido")(_json_cabe)
     aceita: bool
     motivo: Optional[str] = Field(default=None, max_length=500)
     responsavel: Optional[str] = Field(default=None, max_length=80)

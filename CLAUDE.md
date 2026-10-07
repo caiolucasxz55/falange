@@ -67,8 +67,10 @@ tanto a aceita quanto a recusada, com o `motivo` quando o dev disser. Use um
 **Padroes candidatos:** quando `ver_perfil` trouxer `padroes_candidatos`,
 pergunte UMA vez por sessao, no fim da tarefa, se aquilo deve virar regra
 ("percebi que voces X; posso assumir isso daqui pra frente?"). Com um sim
-explicito, `registrar_preferencia(origem="inferida")` e depois
-`confirmar_preferencia`. Sem sim explicito, nao registre e nao insista.
+explicito, chame `registrar_preferencia(origem="inferida")` -- ela nasce
+INATIVA -- e peca ao dev para confirmar no painel "O que o Falange aprendeu".
+A API recusa ativacao vinda do MCP: voce nao liga a regra que vai obedecer.
+Sem sim explicito, nao registre e nao insista.
 
 Correcao humana nao precisa de tool: quando alguem muda estimativa,
 prioridade ou bloco de uma task que voce criou, o backend registra sozinho.
@@ -77,9 +79,12 @@ Nao chame `registrar_decisao` para isso.
 ## Autonomia
 
 `ver_autonomia` diz quanto voce pode fazer sozinho em cada uma das quatro
-acoes. Consulte antes de agir e siga o nivel. Promocao so com sim explicito
-do dev, oferecida uma vez no fim da tarefa; rebaixamento voce pode sugerir
-sempre, e o backend aplica sozinho quando o humano discorda de algo feito no
+acoes. Consulte antes de agir e siga o nivel.
+
+Promover e do humano: a API recusa promocao vinda do MCP. Ofereca uma vez no
+fim da tarefa, citando o `motivo`, e peca para ele subir no painel "Autonomia
+da IA". Rebaixar voce pode a qualquer momento com `definir_autonomia`, e o
+backend rebaixa sozinho quando o humano discorda de algo feito no
 `automatico`.
 
 Apagar task ou nota nunca entra nesse enum: acao destrutiva sempre pergunta.

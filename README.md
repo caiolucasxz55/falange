@@ -213,6 +213,24 @@ servidor e repassa. Qualquer `NEXT_PUBLIC_` acabaria no bundle, visivel para
 quem abrisse a pagina. Como o caminho e a mesma origem, o frontend tambem
 deixou de depender de CORS.
 
+### O que a API trava sozinha
+
+O token diz quem pode usar; estas regras dizem o que cada lado pode fazer:
+
+- **`origem` da task sai do header**, nunca do corpo. Autoria da IA nao e
+  declaravel pelo cliente, senao daria para envenenar calibracao e perfil.
+- **Promover autonomia e ativar preferencia exigem chamada de fora do MCP.**
+  A IA pode propor; quem sobe a confianca e o humano, pela tela. Antes isso
+  dependia do `ask` no `.claude/settings.json`, que e configuracao do cliente
+  e nao protege a API.
+- **Descer confianca e livre** para os dois lados, de proposito.
+- **Tamanhos com teto**: descricao 5000 chars, JSON de decisao 4000,
+  arquivo lido 1 MB. Sem isso, Text e JSONB aceitam o que vier.
+- **Limite de requisicoes** por cliente por minuto (`LIMITE_POR_MINUTO`,
+  padrao 300; 0 desliga). E em memoria: morre no restart, nao e compartilhado
+  entre replicas, e atras do proxy do frontend o time conta como um cliente
+  so.
+
 **O que isto NAO e:** autenticacao de pessoa. O token diz "este cliente pode
 usar a API", nunca "quem e voce". Nada aqui e atribuivel a ninguem, `autor` e
 `responsavel` seguem texto livre, e qualquer um com o token faz tudo o que

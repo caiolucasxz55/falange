@@ -56,6 +56,17 @@ def proximo_nivel(nivel_atual: str) -> Optional[str]:
     return NIVEIS[indice + 1] if indice + 1 < len(NIVEIS) else None
 
 
+def e_promocao(nivel_atual: str, nivel_novo: str) -> bool:
+    """A mudanca sobe um degrau na escada de confianca?
+
+    Nivel desconhecido conta como promocao: na duvida, exige o humano.
+    """
+    try:
+        return NIVEIS.index(nivel_novo) > NIVEIS.index(nivel_atual)
+    except ValueError:
+        return True
+
+
 def pode_promover(
     decisoes_do_tipo: list[dict], nivel_atual: str = "perguntar"
 ) -> dict:

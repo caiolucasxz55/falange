@@ -51,3 +51,17 @@ def test_preflight_nao_exige_token():
 
 def test_sem_segredo_configurado_nada_e_exigido():
     assert not exige_token("/tasks", "GET", "")
+
+
+def test_o_mcp_nao_pode_elevar_confianca():
+    from backend.seguranca import pode_elevar
+
+    assert not pode_elevar("mcp")
+
+
+def test_chamada_de_fora_do_mcp_pode_elevar():
+    from backend.seguranca import pode_elevar
+
+    # Sem header = veio da tela, onde esta o humano.
+    assert pode_elevar(None)
+    assert pode_elevar("frontend")

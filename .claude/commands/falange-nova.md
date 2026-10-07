@@ -60,9 +60,10 @@ bloqueio ou criar as pre-tasks aprovadas. O `nivel` da acao manda:
 - `automatico`: faca e so reporte o que fez.
 
 Se `pode` for true, ofereca a promocao UMA vez, no fim da tarefa, citando o
-`motivo` ("as ultimas 5 estimativas foram aceitas sem ajuste"). So chame
-`definir_autonomia` para SUBIR com um sim explicito. Para descer, pode
-sugerir quando quiser.
+`motivo` ("as ultimas 5 estimativas foram aceitas sem ajuste") e peca ao dev
+para subir no painel "Autonomia da IA". A API recusa promocao vinda do MCP,
+entao nao adianta chamar `definir_autonomia` para subir. Para DESCER, chame
+quando quiser.
 
 ## Estimar com os dados do time, nao com o chute de sempre
 

@@ -43,3 +43,21 @@ def exige_token(caminho: str, metodo: str, esperado: str) -> bool:
     if metodo == "OPTIONS":
         return False
     return caminho not in CAMINHOS_LIVRES
+
+
+# Valor do header X-Falange-Fonte que o MCP manda em toda chamada.
+FONTE_MCP = "mcp"
+
+
+def pode_elevar(fonte: Optional[str]) -> bool:
+    """Quem esta chamando pode AUMENTAR a confianca na IA?
+
+    Nao: a propria IA. Promover autonomia e ativar preferencia sao as duas
+    acoes que mudam o que ela faz sozinha, entao precisam vir de fora do MCP
+    -- na pratica, da tela.
+
+    Antes isso era garantido so pelo `ask` no .claude/settings.json, que e
+    configuracao do CLIENTE: quem chamasse a API direto passava por cima.
+    Descer confianca segue liberado para todo mundo, inclusive para a IA.
+    """
+    return fonte != FONTE_MCP

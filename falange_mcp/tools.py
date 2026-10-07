@@ -37,6 +37,11 @@ EXTENSOES_OK = {
 MAX_CHARS = 20_000
 MAX_CHARS_PASTA = 60_000
 
+# Teto por arquivo, em bytes. O corte de MAX_CHARS_PASTA e acumulado: sem
+# este, um unico arquivo gigante seria lido inteiro para a memoria antes de
+# qualquer verificacao.
+MAX_BYTES_ARQUIVO = 1_000_000
+
 # Pastas que nunca interessam: dependencia, build e lixo de ferramenta.
 PASTAS_IGNORADAS = {
     ".git", "node_modules", ".venv", "__pycache__", ".next", "dist", "build",
@@ -77,6 +82,10 @@ def _pedir(metodo: str, caminho: str, **kw):
     except httpx.HTTPError as e:
         return {"erro": f"backend inacessivel em {BACKEND}: {e}"}
 
+    if r.status_code == 429:
+        return {"erro": f"limite de requisicoes: {r.json().get('detail', '')}"}
+    if r.status_code == 403:
+        return {"erro": str(r.json().get("detail", "acao nao permitida pelo MCP"))}
     if r.status_code == 401:
         return {"erro": "backend recusou o token (FALANGE API_TOKEN confere?)"}
     if r.status_code == 204:
@@ -154,8 +163,8 @@ def criar_task(
             "bloco": bloco,
             "prioridade": prioridade,
             "responsavel": responsavel,
-            # Marca a autoria para o Falange poder medir a IA depois.
-            "origem": "ia",
+            # `origem` nao vai no corpo: o backend deriva do header
+            # X-Falange-Fonte, para a autoria nao ser forjavel.
         },
     )
 
@@ -553,6 +562,10 @@ def _resolver_caminho(caminho: str) -> Path:
         raise ValueError(f"caminho fora da raiz permitida ({root}): {caminho}")
     if not alvo.exists():
         raise ValueError(f"arquivo ou pasta nao encontrado: {caminho}")
+    if alvo.is_file() and alvo.stat().st_size > MAX_BYTES_ARQUIVO:
+        raise ValueError(
+            f"arquivo com {alvo.stat().st_size} bytes (maximo {MAX_BYTES_ARQUIVO})"
+        )
     # Pasta passa direto: a filtragem por extensao acontece arquivo a arquivo.
     if alvo.is_file() and alvo.suffix.lower() not in EXTENSOES_OK:
         raise ValueError(f"extensao nao suportada: {alvo.suffix}")
@@ -591,15 +604,22 @@ def _ler_pasta(raiz: Path) -> tuple[str, list[str], list[dict]]:
 
         for nome in sorted(arquivos):
             arquivo = atual / nome
-            if arquivo.suffix.lower() in EXTENSOES_OK:
-                candidatos.append(arquivo)
-            else:
+            if arquivo.suffix.lower() not in EXTENSOES_OK:
                 ignorados.append(
                     {
                         "caminho": arquivo.relative_to(raiz).as_posix(),
                         "motivo": "extensao",
                     }
                 )
+            elif arquivo.stat().st_size > MAX_BYTES_ARQUIVO:
+                ignorados.append(
+                    {
+                        "caminho": arquivo.relative_to(raiz).as_posix(),
+                        "motivo": "tamanho",
+                    }
+                )
+            else:
+                candidatos.append(arquivo)
 
     # Doc antes de codigo; dentro de cada grupo, ordem alfabetica do caminho.
     candidatos.sort(
