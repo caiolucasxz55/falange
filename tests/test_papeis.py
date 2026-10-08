@@ -241,3 +241,89 @@ def test_a_primeira_conta_humana_fecha_a_brecha():
 def test_exigir_login_fecha_a_brecha_mesmo_no_banco_vazio():
     assert not admin_sem_login(exigir_login=True, existe_conta_humana=False)
     assert not admin_sem_login(exigir_login=True, existe_conta_humana=True)
+
+
+# --------------------------------------------------------------------------
+# edicao: a pergunta e o que MUDOU, nao que campos vieram
+# --------------------------------------------------------------------------
+
+# Como a task esta hoje, nos testes abaixo.
+ATUAL = {"prioridade": "alta", "responsavel": "Outra Pessoa"}
+
+
+def test_editar_reenviando_tudo_igual_nao_exige_nada():
+    """Regressao: era o 403 que comia a edicao de um dev.
+
+    O formulario de edicao reenvia a task inteira. Olhando so a presenca dos
+    campos, corrigir um typo no titulo de uma task `alta` atribuida a outra
+    pessoa exigia `definir_prioridade` E `atribuir_responsavel`, e o dev
+    perdia a edicao toda.
+    """
+    campos = {"titulo": "Titulo corrigido", "prioridade": "alta", "responsavel": "Outra Pessoa"}
+
+    assert acoes_para_campos(campos, "Dev", ATUAL) == set()
+
+
+def test_editar_mudando_a_prioridade_exige_permissao():
+    assert acoes_para_campos({"prioridade": "baixa"}, "Dev", ATUAL) == {
+        "definir_prioridade"
+    }
+
+
+def test_rebaixar_para_o_padrao_tambem_exige_permissao():
+    """Regressao: a isencao do valor padrao vazava para a edicao.
+
+    Um dev desfazia a priorizacao do lead mudando `alta` para `media`, porque
+    escrever o valor padrao nunca exigia nada.
+    """
+    assert acoes_para_campos({"prioridade": PRIORIDADE_PADRAO}, "Dev", ATUAL) == {
+        "definir_prioridade"
+    }
+
+
+def test_na_criacao_o_padrao_segue_isento():
+    # Sem isso um dev nao abriria task nenhuma.
+    assert acoes_para_campos({"prioridade": PRIORIDADE_PADRAO}, "Dev") == set()
+    assert acoes_para_campos({"prioridade": "alta"}, "Dev") == {"definir_prioridade"}
+
+
+def test_prioridade_aceita_enum_na_comparacao():
+    class Falso:
+        value = "alta"
+
+    # Igual ao atual, mesmo vindo como Enum: nao e mudanca.
+    assert acoes_para_campos({"prioridade": Falso()}, "Dev", ATUAL) == set()
+
+
+def test_pegar_para_si_uma_task_de_outro_e_livre():
+    assert acoes_para_campos({"responsavel": "Dev"}, "Dev", ATUAL) == set()
+
+
+def test_passar_a_task_para_um_terceiro_exige_permissao():
+    assert acoes_para_campos({"responsavel": "Mais Outro"}, "Dev", ATUAL) == {
+        "atribuir_responsavel"
+    }
+
+
+def test_largar_a_propria_task_e_livre():
+    minha = {"prioridade": "media", "responsavel": "Dev"}
+
+    assert acoes_para_campos({"responsavel": ""}, "Dev", minha) == set()
+    assert acoes_para_campos({"responsavel": None}, "Dev", minha) == set()
+
+
+def test_tirar_outra_pessoa_da_task_exige_permissao():
+    # Largar e abrir mao do que e seu; isto e distribuir trabalho.
+    assert acoes_para_campos({"responsavel": ""}, "Dev", ATUAL) == {
+        "atribuir_responsavel"
+    }
+
+
+def test_largar_task_de_ninguem_e_livre():
+    vazia = {"prioridade": "media", "responsavel": None}
+
+    assert acoes_para_campos({"responsavel": ""}, "Dev", vazia) == set()
+
+
+def test_caixa_e_espaco_nao_mudam_o_veredito_na_edicao():
+    assert acoes_para_campos({"responsavel": " outra pessoa "}, "Dev", ATUAL) == set()

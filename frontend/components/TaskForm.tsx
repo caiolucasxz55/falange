@@ -3,6 +3,7 @@
 import { type FormEvent, useState } from "react";
 
 import { criarTask, mensagemDoErro } from "@/lib/api";
+import { useSessao } from "@/components/SessaoProvider";
 import {
   BLOCOS,
   type Bloco,
@@ -40,6 +41,11 @@ interface TaskFormProps {
 
 /** Formulario de criacao (POST /tasks). */
 export function TaskForm({ onCriada }: TaskFormProps) {
+  // O backend recusa de todo jeito; isto evita o dev digitar a task
+  // inteira, escolher `alta` e perder o texto num 403.
+  const { pode } = useSessao();
+  const podePriorizar = pode("definir_prioridade");
+  const podeAtribuir = pode("atribuir_responsavel");
   const [campos, setCampos] = useState<Campos>(CAMPOS_INICIAIS);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -140,23 +146,32 @@ export function TaskForm({ onCriada }: TaskFormProps) {
         </label>
       </div>
 
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-gray-700">Prioridade</span>
-        <select
-          value={campos.prioridade}
-          onChange={(e) => {
-            const valor = e.target.value;
-            if (isPrioridade(valor)) atualizar("prioridade", valor);
-          }}
-          className={estiloCampo}
-        >
-          {PRIORIDADES.map((prioridade) => (
-            <option key={prioridade} value={prioridade}>
-              {prioridade}
-            </option>
-          ))}
-        </select>
-      </label>
+      {podePriorizar ? (
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-gray-700">
+            Prioridade
+          </span>
+          <select
+            value={campos.prioridade}
+            onChange={(e) => {
+              const valor = e.target.value;
+              if (isPrioridade(valor)) atualizar("prioridade", valor);
+            }}
+            className={estiloCampo}
+          >
+            {PRIORIDADES.map((prioridade) => (
+              <option key={prioridade} value={prioridade}>
+                {prioridade}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <p className="text-xs text-gray-500">
+          A task nasce com prioridade media. Mudar a fila e de admin ou
+          lead.
+        </p>
+      )}
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-gray-700">
@@ -166,8 +181,14 @@ export function TaskForm({ onCriada }: TaskFormProps) {
           maxLength={80}
           value={campos.responsavel}
           onChange={(e) => atualizar("responsavel", e.target.value)}
+          title={!podeAtribuir ? "Seu papel atribui a si mesmo ou deixa sem responsavel" : undefined}
           className={estiloCampo}
         />
+        {!podeAtribuir && (
+          <span className="mt-1 block text-xs text-gray-500">
+            Seu papel atribui a si mesmo ou deixa sem responsavel.
+          </span>
+        )}
       </label>
 
       {erro && (

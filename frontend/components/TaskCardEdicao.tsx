@@ -2,6 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 
+import { useSessao } from "@/components/SessaoProvider";
+
 import {
   BLOCOS,
   type Bloco,
@@ -39,6 +41,11 @@ export function TaskCardEdicao({
   onSalvar,
   onCancelar,
 }: TaskCardEdicaoProps) {
+  // Esconder nao autoriza; o backend recusa. Isto evita oferecer um
+  // controle que ja se sabe que vai dar 403 ao salvar.
+  const { pode } = useSessao();
+  const podePriorizar = pode("definir_prioridade");
+  const podeAtribuir = pode("atribuir_responsavel");
   const [campos, setCampos] = useState<Campos>({
     titulo: task.titulo,
     descricao: task.descricao,
@@ -122,6 +129,10 @@ export function TaskCardEdicao({
             const valor = e.target.value;
             if (isPrioridade(valor)) atualizar("prioridade", valor);
           }}
+          disabled={!podePriorizar}
+          title={
+            !podePriorizar ? "Mudar a prioridade e de admin ou lead" : undefined
+          }
           className={estilo}
           aria-label="Prioridade"
         >
@@ -137,6 +148,7 @@ export function TaskCardEdicao({
         placeholder="responsavel (vazio remove)"
         value={campos.responsavel}
         onChange={(e) => atualizar("responsavel", e.target.value)}
+        title={!podeAtribuir ? "Seu papel atribui a si mesmo ou deixa sem responsavel" : undefined}
         className={estilo}
         aria-label="Responsavel"
       />

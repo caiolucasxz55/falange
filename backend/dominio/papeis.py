@@ -11,7 +11,7 @@ promove autonomia, nem ativa preferencia, nem mexe em usuario. Essa trava
 era do cliente (o `ask` do .claude/settings.json) e agora e da API.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 # Papeis humanos, do mais para o menos poderoso.
 PAPEIS_HUMANOS = ("admin", "lead", "dev", "leitor")
@@ -165,34 +165,69 @@ def admin_sem_login(exigir_login: bool, existe_conta_humana: bool) -> bool:
 PRIORIDADE_PADRAO = "media"
 
 
-def acoes_para_campos(campos: dict, nome_chamador: Optional[str]) -> set[str]:
+def _texto(valor: Any) -> Any:
+    """Enum do SQLAlchemy vira o texto; o resto passa igual."""
+    return getattr(valor, "value", valor)
+
+
+def _mesmo_nome(a: Optional[str], b: Optional[str]) -> bool:
+    """Compara nome ignorando caixa e espaco nas pontas."""
+    if a is None or b is None:
+        return a == b
+    return a.strip().lower() == b.strip().lower()
+
+
+def acoes_para_campos(
+    campos: dict,
+    nome_chamador: Optional[str],
+    atuais: Optional[dict] = None,
+) -> set[str]:
     """Permissoes extras que os campos desta escrita exigem.
 
     Criar e editar task passam por aqui. A ideia: descrever o trabalho e de
     quem executa, decidir a fila e de quem lidera.
 
+    `atuais` sao os valores que a task tem hoje; None significa criacao.
+    Passar isso importa porque a pergunta certa e "o que esta MUDANDO", nao
+    "que campos vieram no corpo". Olhando so a presenca, o formulario de
+    edicao -- que reenvia a task inteira -- fazia um dev levar 403 ao
+    corrigir um typo no titulo de qualquer task `alta`. E, ao mesmo tempo,
+    deixava esse dev rebaixar `alta` para `media` de graca, porque o valor
+    padrao era isento.
+
     Duas folgas deliberadas, para a regra nao virar burocracia:
 
-    - gravar a prioridade PADRAO nao exige nada -- senao um dev nao
-      conseguiria abrir uma task;
-    - se atribuir a SI MESMO nao exige nada -- pegar trabalho e diferente de
-      distribuir trabalho para os outros.
+    - na CRIACAO, gravar a prioridade padrao nao exige nada -- senao um dev
+      nao conseguiria abrir uma task. Na edicao nao existe isencao por
+      valor: mudar para `media` e mudar a prioridade como qualquer outra.
+    - atribuir a SI MESMO nao exige nada, nem na criacao nem na edicao --
+      pegar trabalho e diferente de distribuir trabalho para os outros. E,
+      pela mesma logica, LARGAR a task so e livre se ela for sua: tirar
+      outra pessoa de uma task e distribuir trabalho, nao abrir mao.
     """
     extras: set[str] = set()
+    criando = atuais is None
 
     if "prioridade" in campos:
-        valor = getattr(campos["prioridade"], "value", campos["prioridade"])
-        if valor is not None and valor != PRIORIDADE_PADRAO:
+        novo = _texto(campos["prioridade"])
+        if criando:
+            # Sem valor anterior para comparar: so o padrao e isento.
+            if novo is not None and novo != PRIORIDADE_PADRAO:
+                extras.add("definir_prioridade")
+        elif novo != _texto(atuais.get("prioridade")):
             extras.add("definir_prioridade")
 
     if "responsavel" in campos:
         alvo = campos["responsavel"]
-        # Limpar o campo e abrir mao, nao distribuir.
-        proprio = alvo in (None, "") or (
-            nome_chamador is not None
-            and alvo.strip().lower() == nome_chamador.strip().lower()
-        )
-        if not proprio:
-            extras.add("atribuir_responsavel")
+        atual = None if criando else atuais.get("responsavel")
+        if not _mesmo_nome(alvo, atual):
+            vazio = alvo in (None, "")
+            pegando_para_si = _mesmo_nome(alvo, nome_chamador)
+            # Largar: livre so quando a task era sua (ou de ninguem).
+            largando = vazio and (
+                atual in (None, "") or _mesmo_nome(atual, nome_chamador)
+            )
+            if not (pegando_para_si or largando):
+                extras.add("atribuir_responsavel")
 
     return extras

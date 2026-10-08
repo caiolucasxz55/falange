@@ -155,7 +155,16 @@ async def editar_task(
     campos = body.model_dump(exclude_unset=True)
     if not campos:
         raise HTTPException(400, "nenhum campo para alterar")
-    for acao in sorted(acoes_para_campos(campos, chamador.nome)):
+
+    # Carrega ANTES de decidir a permissao: o que importa e o que esta
+    # mudando, nao que campos vieram no corpo. O formulario da tela reenvia
+    # a task inteira, entao julgar por presenca cobraria `definir_prioridade`
+    # de quem so corrigiu o titulo.
+    atual = await repo.buscar(session, task_id)
+    if atual is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+    atuais = {"prioridade": atual.prioridade, "responsavel": atual.responsavel}
+    for acao in sorted(acoes_para_campos(campos, chamador.nome, atuais)):
         chamador.exigir(acao)
 
     task = await repo.editar(session, task_id, campos, fonte=x_falange_fonte)
