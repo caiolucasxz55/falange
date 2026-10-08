@@ -313,10 +313,14 @@ regra de papel em vez de checagem de header.
 
 **Autor e responsavel viraram fato.** `task.autor_id`, `task.responsavel_id`,
 `nota.autor_id` e `decisao.autor_id` apontam para `usuario`. As colunas de
-texto ficam, e nao sao legado: sao o rotulo de quem nunca virou conta. O
-backfill da migration 0007 liga o que casa por nome e aponta as tasks com
-`origem = 'ia'` para a conta de servico; nome solto nao gera usuario
-inventado.
+texto ficam, e nao sao legado: sao o rotulo de quem nunca virou conta.
+
+`autor_id` sai de quem fez a chamada. `responsavel_id` e resolvido a cada
+escrita a partir do texto, com a mesma regra do backfill da migration 0007:
+liga quem casa por nome (ignorando caixa e espaco), e fica NULL para nome
+solto. Fica NULL tambem quando DUAS contas tem o mesmo `nome` -- a coluna
+nao e unica, e escolher uma no palpite gravaria a task na pessoa errada; ai
+o texto segue sendo o unico registro, que e o que ele existe para ser.
 
 **Nao existe DELETE de usuario.** Apagar deixaria as tasks e decisoes da
 pessoa apontando para ninguem. `PATCH /usuarios/{id}` com `ativo: false`

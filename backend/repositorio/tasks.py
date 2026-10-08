@@ -15,6 +15,7 @@ from backend.models import (
     Task,
     TipoDecisao,
 )
+from backend.repositorio import usuarios
 from backend.repositorio.aprendizado import rebaixar_se_preciso
 
 # CASE explicito: a ordem do enum no Postgres nao e a ordem de prioridade.
@@ -30,8 +31,23 @@ def _valor(bruto):
     return getattr(bruto, "value", bruto)
 
 
+async def _ligar_responsavel(session: AsyncSession, dados: dict) -> dict:
+    """Resolve o texto `responsavel` para `responsavel_id`, quando der.
+
+    Mora aqui, e nao na rota, para valer igual pela tela e pelo MCP -- e
+    porque manter a FK em sincronia com o texto e um assunto de dados, nao
+    de HTTP. Mesma regra do backfill da migration 0007: liga quem casa por
+    nome, e deixa NULL para nome solto. Sem isto a coluna ficava sempre
+    NULL, apesar de aparecer na API como "o id e o fato".
+    """
+    if "responsavel" not in dados:
+        return dados
+    pessoa = await usuarios.buscar_por_nome(session, dados["responsavel"] or "")
+    return {**dados, "responsavel_id": pessoa.id if pessoa else None}
+
+
 async def criar(session: AsyncSession, dados: dict) -> Task:
-    task = Task(**dados)
+    task = Task(**await _ligar_responsavel(session, dados))
     session.add(task)
     await session.commit()
     await session.refresh(task)
@@ -172,6 +188,10 @@ async def editar(
         for campo in CAMPOS_AJUSTAVEIS
         if campo in campos
     }
+
+    # Trocar o texto do responsavel reaponta a FK no mesmo commit, senao
+    # as duas colunas passariam a discordar.
+    campos = await _ligar_responsavel(session, campos)
 
     for campo, valor in campos.items():
         setattr(task, campo, valor)

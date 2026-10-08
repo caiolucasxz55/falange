@@ -80,6 +80,26 @@ async def editar(
     return usuario
 
 
+async def buscar_por_nome(session: AsyncSession, nome: str) -> Optional[Usuario]:
+    """Usuario cujo `nome` casa, ignorando caixa e espaco nas pontas.
+
+    Devolve None quando ninguem casa E tambem quando mais de um casa: `nome`
+    nao e unico, e escolher um dos dois no palpite gravaria a task na conta
+    errada. Nesse caso o texto continua sendo o unico registro, que e
+    exatamente o que ele existe para ser.
+    """
+    limpo = (nome or "").strip().lower()
+    if not limpo:
+        return None
+    q = (
+        select(Usuario)
+        .where(func.lower(Usuario.nome) == limpo, Usuario.papel != Papel.ia)
+        .limit(2)
+    )
+    achados = list((await session.scalars(q)).all())
+    return achados[0] if len(achados) == 1 else None
+
+
 async def existe_conta_humana(session: AsyncSession) -> bool:
     """Ja existe alguma conta de pessoa (qualquer papel, ativa ou nao)?
 
