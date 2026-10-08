@@ -3,10 +3,10 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.models.enums import Bloco, Estimativa, Origem, Prioridade, Status
-from backend.schemas.limites import MAX_DESCRICAO
+from backend.schemas.limites import MAX_DESCRICAO, recusar_nulos
 
 
 class TaskOut(BaseModel):
@@ -52,6 +52,11 @@ class TaskEdicao(BaseModel):
     bloco: Optional[Bloco] = None
     prioridade: Optional[Prioridade] = None
     responsavel: Optional[str] = Field(default=None, max_length=80)
+
+    # `responsavel` fica de fora: null nele significa tirar o responsavel.
+    _sem_nulos = model_validator(mode="before")(
+        recusar_nulos("titulo", "descricao", "estimativa", "bloco", "prioridade")
+    )
 
 
 class Bloqueio(BaseModel):

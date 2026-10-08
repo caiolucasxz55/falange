@@ -3,7 +3,9 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from backend.schemas.limites import recusar_nulos
 
 
 class NotaOut(BaseModel):
@@ -34,3 +36,8 @@ class NotaEdicao(BaseModel):
     autor: Optional[str] = Field(default=None, max_length=80)
     task_id: Optional[int] = None
     resolvida: Optional[bool] = None
+
+    # `autor` e `task_id` ficam de fora: null neles solta a nota.
+    _sem_nulos = model_validator(mode="before")(
+        recusar_nulos("texto", "resolvida")
+    )

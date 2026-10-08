@@ -8,9 +8,16 @@ reaproveite `UsuarioOut`.
 from datetime import datetime
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 from backend.models.usuario import Papel
+from backend.schemas.limites import recusar_nulos
 from backend.seguranca.senha import MAX_SENHA, MIN_SENHA
 
 # Checagem propria em vez de `EmailStr`: aquele tipo puxa a dependencia
@@ -52,6 +59,12 @@ class UsuarioEdicao(BaseModel):
     nome: Optional[str] = Field(default=None, min_length=2, max_length=80)
     papel: Optional[Papel] = None
     ativo: Optional[bool] = None
+
+    # Os tres sao NOT NULL na tabela: `{"papel": null}` chegava como None
+    # e virava IntegrityError 500, driblando a guarda do ultimo admin.
+    _sem_nulos = model_validator(mode="before")(
+        recusar_nulos("nome", "papel", "ativo")
+    )
 
 
 class TrocaDeSenha(BaseModel):

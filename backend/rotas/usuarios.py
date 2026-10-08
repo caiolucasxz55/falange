@@ -85,9 +85,13 @@ async def editar_usuario(
 
     # Nao deixe a plataforma sem admin: sem ninguem com `gerir_usuarios`,
     # nao da para desfazer pela API.
+    #
+    # O schema recusa nulo explicito nestes campos, entao "esta em `campos`"
+    # ja significa "veio um valor de verdade" -- sem isso, `{"papel": null}`
+    # passava por aqui sem perde_admin e ia gravar NULL.
     perde_admin = alvo.papel is Papel.admin and (
         campos.get("ativo") is False
-        or (campos.get("papel") is not None and campos["papel"] is not Papel.admin)
+        or ("papel" in campos and campos["papel"] is not Papel.admin)
     )
     if perde_admin and await repo.contar_por_papel(session, Papel.admin) <= 1:
         raise HTTPException(
