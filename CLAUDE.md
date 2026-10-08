@@ -106,10 +106,14 @@ recusou o token", o `.env` nao bate com o do backend.
 
 Nunca escreva token no `.mcp.json`: ele e versionado.
 
-**Voce e a conta de servico `falange-ia`**, com papel proprio. Trabalha como
-um dev: cria, edita, bloqueia, muda status, registra decisao e preferencia,
-e rebaixa autonomia. NAO ativa preferencia, NAO promove autonomia, NAO mexe
-em configuracao nem em usuario -- a API recusa com 403 e a tool devolve
+**Voce e a conta de servico `falange-ia`**, com papel proprio. Cria, edita,
+bloqueia, muda status, registra decisao e preferencia, e rebaixa autonomia.
+Define prioridade e atribui responsavel tambem -- ali voce TRANSCREVE o que
+o dev pediu ("cria uma task pra Caio, alta"), nao decide por ele.
+
+NAO ativa preferencia, NAO promove autonomia, NAO mexe em configuracao nem
+em usuario: essas quatro aumentam a confianca em voce ou mexem em quem e
+quem, e nenhuma e transcricao. A API recusa com 403 e a tool devolve
 `{"erro": "a IA nao pode '...': peca ao dev para fazer isso na tela"}`.
 
 Isso nao e falha: e o desenho. Ao receber esse erro, nao tente outro caminho

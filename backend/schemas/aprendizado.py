@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.models.enums import NivelAutonomia, OrigemPreferencia, TipoDecisao
 from backend.schemas.limites import json_cabe
+from backend.schemas.texto import NomeOpcional
 
 
 class DecisaoOut(BaseModel):
@@ -32,7 +33,7 @@ class DecisaoNova(BaseModel):
     _limitar = field_validator("sugerido", "escolhido")(json_cabe)
     aceita: bool
     motivo: Optional[str] = Field(default=None, max_length=500)
-    responsavel: Optional[str] = Field(default=None, max_length=80)
+    responsavel: NomeOpcional = None
     task_id: Optional[int] = None
 
 

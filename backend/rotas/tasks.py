@@ -16,6 +16,7 @@ from backend.dominio.papeis import acoes_para_campos
 from backend.models import Bloco, Origem, Prioridade, Status
 from backend.repositorio import tasks as repo
 from backend.seguranca.dependencias import Chamador, obter_chamador
+from backend.schemas.texto import NomeOpcional
 from backend.schemas import (
     Bloqueio,
     Carga,
@@ -52,7 +53,8 @@ async def criar_task(
 async def listar_tasks(
     bloco: Optional[Bloco] = None,
     status: Optional[Status] = None,
-    responsavel: Optional[str] = None,
+    # Aparado como na gravacao: filtro com espaco sobrando achava zero.
+    responsavel: NomeOpcional = None,
     prioridade: Optional[Prioridade] = None,
     chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),
@@ -79,7 +81,7 @@ async def contar_tasks_por_bloco(
 @rotas.get("/carga", response_model=Carga)
 async def carga(
     bloco: Optional[Bloco] = None,
-    responsavel: Optional[str] = None,
+    responsavel: NomeOpcional = None,
     limite: Optional[int] = Query(None, description="default: LIMITE_SOBRECARGA do .env"),
     chamador: Chamador = Depends(obter_chamador),
     session: AsyncSession = Depends(get_session),

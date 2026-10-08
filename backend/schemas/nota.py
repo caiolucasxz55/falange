@@ -6,6 +6,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.schemas.limites import recusar_nulos
+from backend.schemas.texto import NomeOpcional
 
 
 class NotaOut(BaseModel):
@@ -22,7 +23,7 @@ class NotaOut(BaseModel):
 
 class NotaNova(BaseModel):
     texto: str = Field(min_length=5, max_length=2000)
-    autor: Optional[str] = Field(default=None, max_length=80)
+    autor: NomeOpcional = None
     task_id: Optional[int] = None
 
 
@@ -33,7 +34,7 @@ class NotaEdicao(BaseModel):
     """
 
     texto: Optional[str] = Field(default=None, min_length=5, max_length=2000)
-    autor: Optional[str] = Field(default=None, max_length=80)
+    autor: NomeOpcional = None
     task_id: Optional[int] = None
     resolvida: Optional[bool] = None
 

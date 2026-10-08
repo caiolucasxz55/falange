@@ -18,6 +18,7 @@ from pydantic import (
 
 from backend.models.usuario import Papel
 from backend.schemas.limites import recusar_nulos
+from backend.schemas.texto import NomeObrigatorio
 from backend.seguranca.senha import MAX_SENHA, MIN_SENHA
 
 # Checagem propria em vez de `EmailStr`: aquele tipo puxa a dependencia
@@ -48,7 +49,7 @@ class UsuarioOut(BaseModel):
 
 class UsuarioNovo(BaseModel):
     email: Email
-    nome: str = Field(min_length=2, max_length=80)
+    nome: NomeObrigatorio
     senha: str = Field(min_length=MIN_SENHA, max_length=MAX_SENHA)
     papel: Papel = Papel.dev
 
@@ -56,7 +57,7 @@ class UsuarioNovo(BaseModel):
 class UsuarioEdicao(BaseModel):
     """Edicao parcial. Papel e `ativo` cortam as sessoes vivas da pessoa."""
 
-    nome: Optional[str] = Field(default=None, min_length=2, max_length=80)
+    nome: Optional[NomeObrigatorio] = None
     papel: Optional[Papel] = None
     ativo: Optional[bool] = None
 

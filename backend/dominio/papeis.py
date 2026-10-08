@@ -91,15 +91,24 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "rebaixar_autonomia",
     ),
     "leitor": ("ler",),
-    # A IA trabalha como um dev, e apaga como um dev (so o que ela criou).
+    # A IA apaga como um dev (so o que ela criou), mas decide prioridade e
+    # responsavel como um lead -- de proposito: ali ela esta TRANSCREVENDO o
+    # pedido do dev ("cria uma task pra Caio, alta"), nao dirigindo ninguem.
+    #
+    # A isencao de "atribuir a si mesmo" nao serve para ela: o `nome` dela e
+    # "Falange IA", entao sem a permissao ampla o parametro `responsavel` da
+    # tool falhava em TODO caso -- e a tool continuava anunciando o campo.
+    #
     # O que ela NAO tem: ativar_preferencia, promover_autonomia,
-    # definir_configuracao e gerir_usuarios. Rebaixar ela pode, sempre:
-    # perder confianca e seguro em qualquer direcao.
+    # definir_configuracao e gerir_usuarios. Essas quatro aumentam a
+    # confianca nela ou mexem em quem e quem; nenhuma e transcricao.
+    # Rebaixar ela pode, sempre: perder confianca e seguro em toda direcao.
     PAPEL_IA: (
         "ler",
         "criar_task",
         "editar_task",
         "definir_prioridade",
+        "atribuir_responsavel",
         "mudar_status_task",
         "marcar_bloqueio",
         "apagar_task_propria",

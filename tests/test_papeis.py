@@ -103,6 +103,26 @@ def test_ia_trabalha_como_dev():
     assert pode(PAPEL_IA, "criar_preferencia")
 
 
+@pytest.mark.parametrize("acao", ["definir_prioridade", "atribuir_responsavel"])
+def test_ia_transcreve_prioridade_e_responsavel(acao):
+    """As duas sao acoes de lead, e a IA tem as DUAS -- de proposito.
+
+    Ali ela transcreve o pedido do dev ("cria uma task pra Caio, alta"), nao
+    dirige ninguem. Regressao de uma incoerencia real: enquanto ela tinha so
+    `definir_prioridade`, o parametro `responsavel` da tool falhava em todo
+    caso, porque a isencao de "atribuir a si mesmo" nao vale para ela -- o
+    `nome` dela e "Falange IA".
+    """
+    assert pode(PAPEL_IA, acao)
+
+
+def test_a_isencao_de_atribuir_a_si_nao_alcanca_a_conta_de_servico():
+    # Documenta POR QUE a permissao ampla e necessaria para a IA.
+    assert acoes_para_campos({"responsavel": "Caio"}, "Falange IA") == {
+        "atribuir_responsavel"
+    }
+
+
 @pytest.mark.parametrize("acao", ["ativar_preferencia", "promover_autonomia"])
 def test_ia_nao_eleva_a_confianca_em_si_mesma(acao):
     """A trava central do projeto: a IA propoe, o humano confirma."""

@@ -307,9 +307,16 @@ abriria task), e atribuir a SI MESMO nao conta como "atribuir responsavel"
 (pegar trabalho e diferente de distribuir).
 
 **`falange-ia` e o quinto papel**, e fica fora da escada: e a conta de
-servico que o MCP usa, sem senha, que entra pelo `API_TOKEN`. Ela trabalha
-como um dev e nao aumenta a confianca em si mesma. E o que torna as travas
-regra de papel em vez de checagem de header.
+servico que o MCP usa, sem senha, que entra pelo `API_TOKEN`. E o que torna
+as travas regra de papel em vez de checagem de header.
+
+Ela apaga como um dev (so o que criou), mas define prioridade e atribui
+responsavel como um lead -- de proposito: ali ela transcreve o pedido do
+dev, nao dirige ninguem. O que ela nao tem e o que aumentaria a confianca
+nela (ativar preferencia, promover autonomia) ou mexeria em quem e quem
+(configuracao, usuarios). A isencao de "atribuir a si mesmo" nao a alcanca,
+porque o `nome` dela e "Falange IA": sem a permissao ampla, o parametro
+`responsavel` das tools falhava em todo caso.
 
 **Autor e responsavel viraram fato.** `task.autor_id`, `task.responsavel_id`,
 `nota.autor_id` e `decisao.autor_id` apontam para `usuario`. As colunas de

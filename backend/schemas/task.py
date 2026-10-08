@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.models.enums import Bloco, Estimativa, Origem, Prioridade, Status
 from backend.schemas.limites import MAX_DESCRICAO, recusar_nulos
+from backend.schemas.texto import NomeOpcional
 
 
 class TaskOut(BaseModel):
@@ -37,7 +38,7 @@ class TaskNova(BaseModel):
     estimativa: Estimativa
     bloco: Bloco
     prioridade: Prioridade = Prioridade.media
-    responsavel: Optional[str] = Field(default=None, max_length=80)
+    responsavel: NomeOpcional = None
     # `origem` NAO entra aqui: e derivada do header X-Falange-Fonte pelo
     # backend. Deixar o cliente declarar quem escreveu a task permitiria
     # forjar autoria da IA e envenenar a calibracao e o perfil.
@@ -51,7 +52,9 @@ class TaskEdicao(BaseModel):
     estimativa: Optional[Estimativa] = None
     bloco: Optional[Bloco] = None
     prioridade: Optional[Prioridade] = None
-    responsavel: Optional[str] = Field(default=None, max_length=80)
+    # Aparado, e vazio virando None: e assim que a tela e o MCP
+    # removem o responsavel, com uma representacao so no banco.
+    responsavel: NomeOpcional = None
 
     # `responsavel` fica de fora: null nele significa tirar o responsavel.
     _sem_nulos = model_validator(mode="before")(

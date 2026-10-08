@@ -17,6 +17,7 @@ from backend.dominio.priorizacao import ranquear
 from backend.models import Bloco, Status
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import TaskOut
+from backend.schemas.texto import NomeOpcional
 from backend.seguranca.dependencias import Chamador, obter_chamador
 
 rotas = APIRouter(tags=["analise"])
@@ -24,7 +25,7 @@ rotas = APIRouter(tags=["analise"])
 
 @rotas.get("/priorizacao")
 async def priorizacao(
-    responsavel: Optional[str] = None,
+    responsavel: NomeOpcional = None,
     bloco: Optional[Bloco] = None,
     limite: int = Query(5, ge=1, le=50),
     chamador: Chamador = Depends(obter_chamador),
