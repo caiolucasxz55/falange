@@ -140,8 +140,14 @@ async def obter_chamador(
             )
         return Chamador(conta, conta.papel.value)
 
-    if settings.exigir_login:
-        raise HTTPException(401, "faca login: token compartilhado nao identifica ninguem")
+    # Transicao, e so para o bootstrap: o token compartilhado vale como admin
+    # enquanto nao existe nenhuma conta humana. Depois da primeira, fecha --
+    # senao bastaria apagar o cookie de sessao para virar admin.
+    if papeis.admin_sem_login(
+        settings.exigir_login, await repo.existe_conta_humana(session)
+    ):
+        return Chamador(None, Papel.admin.value, sem_login=True)
 
-    # Transicao: a tela ainda nao tem login.
-    return Chamador(None, Papel.admin.value, sem_login=True)
+    raise HTTPException(
+        401, "faca login: o token compartilhado nao identifica ninguem"
+    )

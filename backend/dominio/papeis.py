@@ -140,6 +140,26 @@ def acoes_de(papel: Optional[str]) -> list[str]:
     return [acao for acao in ACOES if acao in permitidas]
 
 
+def admin_sem_login(exigir_login: bool, existe_conta_humana: bool) -> bool:
+    """O token compartilhado, sozinho, ainda vale como admin?
+
+    Existe UMA razao para isso valer: criar o primeiro admin. Sem essa
+    brecha, um banco novo nao teria como ganhar o primeiro usuario pela API.
+
+    Ela fecha na primeira conta humana criada, e isso nao e zelo: enquanto
+    ficava aberta, qualquer pessoa escalava privilegio apagando o proprio
+    cookie de sessao no devtools -- a tela cai no token compartilhado, e o
+    token compartilhado era admin. `HttpOnly` nao protege disso: ele impede
+    o JavaScript de LER o cookie, nao a pessoa de apaga-lo.
+
+    `exigir_login` fecha a brecha de uma vez, inclusive no banco vazio -- ai
+    o primeiro admin tem de ser criado por fora da API.
+    """
+    if exigir_login:
+        return False
+    return not existe_conta_humana
+
+
 # Prioridade que uma task assume quando ninguem escolhe. Escrever ESTE valor
 # nao e "definir prioridade": e aceitar o padrao.
 PRIORIDADE_PADRAO = "media"

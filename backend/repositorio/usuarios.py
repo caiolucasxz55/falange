@@ -80,6 +80,16 @@ async def editar(
     return usuario
 
 
+async def existe_conta_humana(session: AsyncSession) -> bool:
+    """Ja existe alguma conta de pessoa (qualquer papel, ativa ou nao)?
+
+    Inativa conta: ela existe, e um admin pode reativa-la. O que importa aqui
+    e saber se o banco ainda esta no estado de bootstrap.
+    """
+    q = select(Usuario.id).where(Usuario.papel != Papel.ia).limit(1)
+    return (await session.scalars(q)).first() is not None
+
+
 async def contar_por_papel(session: AsyncSession, papel: Papel) -> int:
     q = select(func.count(Usuario.id)).where(
         Usuario.papel == papel, Usuario.ativo.is_(True)

@@ -37,10 +37,12 @@ class Settings(BaseSettings):
     # Validade do refresh. Passado isso, login de novo.
     sessao_dias: int = 14
 
-    # true: toda chamada precisa de login (ou do token do MCP). false: quem
-    # chega com o token compartilhado e sem o header do MCP e tratado como
-    # admin sem login, que e o comportamento de antes da V2. Serve para a
-    # transicao: vira true quando a tela tiver login.
+    # true: toda chamada precisa de login (ou do header do MCP).
+    #
+    # false: o token compartilhado sozinho vale como admin APENAS enquanto
+    # nao existe nenhuma conta humana, para dar como criar a primeira. Ver
+    # `dominio.papeis.admin_sem_login`: a brecha fecha sozinha na primeira
+    # conta, senao apagar o cookie de sessao viraria escalonamento.
     exigir_login: bool = False
 
 

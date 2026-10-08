@@ -324,12 +324,20 @@ corta o acesso na hora e preserva o historico, e
 `DELETE /usuarios/{id}/sessoes` derruba so as sessoes (o caso do notebook
 perdido). O ultimo admin ativo nao pode se rebaixar nem se desativar.
 
-**Primeiro admin (bootstrap):** com `EXIGIR_LOGIN=false`, quem chega com o
-`API_TOKEN` e sem o header do MCP e tratado como admin sem login -- e o
-comportamento de antes da V2. Use isso para criar a primeira conta admin por
-`POST /usuarios` e so depois vire `EXIGIR_LOGIN=true`. Com `true` e sem
-nenhum admin no banco, ninguem entra e nao ha como criar o primeiro pela
-API.
+**Primeiro admin (bootstrap):** num banco **sem nenhuma conta humana**, quem
+chega com o `API_TOKEN` e sem o header do MCP e tratado como admin sem login.
+Serve para criar a primeira conta por `POST /usuarios`.
+
+Essa brecha **fecha sozinha na primeira conta criada**: dali em diante o
+token compartilhado, sozinho, nao identifica ninguem e leva 401. Nao e zelo
+-- enquanto ela ficava aberta, qualquer pessoa escalava privilegio apagando
+o proprio cookie de sessao no devtools, porque a tela caia no token
+compartilhado e o token compartilhado era admin. `HttpOnly` nao protege
+disso: ele impede o JavaScript de LER o cookie, nao a pessoa de apaga-lo.
+
+`EXIGIR_LOGIN=true` fecha a brecha de uma vez, inclusive no banco vazio; ai
+o primeiro admin tem de ser criado por fora da API. O MCP nao e afetado em
+momento nenhum: ele manda o header e e atendido como a conta de servico.
 
 ## Conectar o Claude
 

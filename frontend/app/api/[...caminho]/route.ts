@@ -71,11 +71,19 @@ function limparSessao(cofre: Cofre): void {
   cofre.delete(COOKIE_REFRESH);
 }
 
-function cabecalhos(requisicao: Request, access: string | null): Headers {
+/**
+ * `compartilhado` so e permitido para quem NAO tem sessao. Deixar o token
+ * compartilhado cobrir a falta do access era um escalonamento de privilegio:
+ * bastava apagar o cookie no devtools para a chamada sair como o token do
+ * servidor, que o backend tratava como admin. Quem tem sessao e so a sessao.
+ */
+function cabecalhos(
+  requisicao: Request,
+  access: string | null,
+  compartilhado: boolean,
+): Headers {
   const saida = new Headers();
-  // O access da pessoa tem prioridade; o token compartilhado e o fallback
-  // para quem ainda nao entrou (vale enquanto EXIGIR_LOGIN=false).
-  const credencial = access || TOKEN;
+  const credencial = access ?? (compartilhado ? TOKEN : "");
   if (credencial) saida.set("Authorization", `Bearer ${credencial}`);
   const tipo = requisicao.headers.get("content-type");
   if (tipo) saida.set("Content-Type", tipo);
@@ -138,8 +146,27 @@ async function encaminhar(
   const eLogout = rota === "sessao" && requisicao.method === "DELETE";
 
   const cofre = await cookies();
-  const access = cofre.get(COOKIE_ACCESS)?.value ?? null;
+  let access = cofre.get(COOKIE_ACCESS)?.value ?? null;
   const refresh = cofre.get(COOKIE_REFRESH)?.value ?? null;
+
+  // Ter refresh e ser uma pessoa logada, mesmo sem access: o cookie do access
+  // vive pouco e desaparece sozinho numa aba parada. Renovar ANTES de chamar
+  // evita duas coisas: o 401 inutil, e cair na credencial compartilhada --
+  // que, com EXIGIR_LOGIN=false, mudaria quem a pessoa e no meio da sessao.
+  if (!access && refresh && !eLogin) {
+    const nova = await renovar(refresh);
+    if (nova) {
+      guardarSessao(cofre, nova);
+      access = nova.access;
+    } else {
+      limparSessao(cofre);
+    }
+  }
+
+  // Sem sessao nenhuma, a chamada sai com o token compartilhado -- e o modo
+  // de bootstrap, e o backend so o aceita como admin enquanto nao existe
+  // nenhuma conta humana.
+  const temSessao = access !== null || refresh !== null;
 
   let resposta: Response;
   try {
@@ -147,7 +174,7 @@ async function encaminhar(
     resposta = await chamar(
       destino,
       requisicao.method,
-      cabecalhos(requisicao, eLogin ? null : access),
+      cabecalhos(requisicao, eLogin ? null : access, eLogin || !temSessao),
       corpo,
     );
   } catch {
@@ -156,8 +183,7 @@ async function encaminhar(
 
   let texto = resposta.status === 204 ? "" : await resposta.text();
 
-  // Sessao expirada: renova uma vez e repete. Sem isto, a tela deslogaria
-  // sozinha a cada 15 minutos.
+  // Sessao revogada ou expirada no meio do caminho: tenta renovar uma vez.
   if (resposta.status === 401 && access && refresh && !eLogin) {
     const nova = await renovar(refresh);
     if (nova) {
@@ -165,9 +191,12 @@ async function encaminhar(
       const repetida = await chamar(
         destino,
         requisicao.method,
-        cabecalhos(requisicao, nova.access),
+        cabecalhos(requisicao, nova.access, false),
         corpo,
       );
+      // O logout tambem passa por aqui: sem esta limpeza, sair com o access
+      // vencido revogaria no backend e deixaria os cookies no navegador.
+      if (eLogout) limparSessao(cofre);
       return repassar(repetida, repetida.status === 204 ? "" : await repetida.text());
     }
     // O refresh tambem morreu: limpa para a tela pedir login de novo.

@@ -10,6 +10,7 @@ from backend.dominio.papeis import (
     PERMISSOES,
     PRIORIDADE_PADRAO,
     acoes_de,
+    admin_sem_login,
     acoes_para_campos,
     papel_valido,
     pode,
@@ -215,3 +216,28 @@ def test_os_dois_campos_somam_as_exigencias():
         "definir_prioridade",
         "atribuir_responsavel",
     }
+
+
+# --------------------------------------------------------------------------
+# a brecha do bootstrap
+# --------------------------------------------------------------------------
+
+
+def test_banco_vazio_deixa_o_token_compartilhado_ser_admin():
+    # Unica razao da brecha existir: criar o primeiro admin pela API.
+    assert admin_sem_login(exigir_login=False, existe_conta_humana=False)
+
+
+def test_a_primeira_conta_humana_fecha_a_brecha():
+    """Regressao de escalonamento de privilegio.
+
+    Enquanto isto devolvia True com contas existindo, qualquer pessoa virava
+    admin apagando o proprio cookie de sessao no devtools: a tela caia no
+    token compartilhado, e o token compartilhado era admin.
+    """
+    assert not admin_sem_login(exigir_login=False, existe_conta_humana=True)
+
+
+def test_exigir_login_fecha_a_brecha_mesmo_no_banco_vazio():
+    assert not admin_sem_login(exigir_login=True, existe_conta_humana=False)
+    assert not admin_sem_login(exigir_login=True, existe_conta_humana=True)
