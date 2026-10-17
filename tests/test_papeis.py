@@ -12,6 +12,7 @@ from backend.dominio.papeis import (
     acoes_de,
     admin_sem_login,
     acoes_para_campos,
+    assinatura_da_nota,
     papel_valido,
     pode,
 )
@@ -347,3 +348,35 @@ def test_largar_task_de_ninguem_e_livre():
 
 def test_caixa_e_espaco_nao_mudam_o_veredito_na_edicao():
     assert acoes_para_campos({"responsavel": " outra pessoa "}, "Dev", ATUAL) == set()
+
+
+# --------------------------------------------------------------------------
+# quem assina a nota
+# --------------------------------------------------------------------------
+
+
+def test_pessoa_logada_assina_a_propria_nota():
+    assert assinatura_da_nota("Marina Alves", False, None) == "Marina Alves"
+
+
+def test_pessoa_logada_nao_assina_como_outra():
+    # Impersonacao: o nome do corpo e ignorado para quem a API ja identificou.
+    assert assinatura_da_nota("Marina Alves", False, "Caio Lucas") == "Marina Alves"
+
+
+def test_a_conta_de_servico_nao_engole_o_nome_de_quem_ditou():
+    """Regressao: a IA tem `nome`, e uma regra so por nome quebrava o MCP.
+
+    Com ela, toda nota vinda do MCP saia assinada "Falange IA" e o parametro
+    `autor` da tool virava enfeite.
+    """
+    assert assinatura_da_nota("Falange IA", True, "Marina Alves") == "Marina Alves"
+
+
+def test_mcp_sem_autor_deixa_a_nota_sem_assinatura():
+    assert assinatura_da_nota("Falange IA", True, None) is None
+
+
+def test_sem_login_vale_o_que_veio_no_pedido():
+    assert assinatura_da_nota(None, False, "Alguem De Fora") == "Alguem De Fora"
+    assert assinatura_da_nota(None, False, None) is None

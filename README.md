@@ -322,12 +322,21 @@ porque o `nome` dela e "Falange IA": sem a permissao ampla, o parametro
 `nota.autor_id` e `decisao.autor_id` apontam para `usuario`. As colunas de
 texto ficam, e nao sao legado: sao o rotulo de quem nunca virou conta.
 
-`autor_id` sai de quem fez a chamada. `responsavel_id` e resolvido a cada
-escrita a partir do texto, com a mesma regra do backfill da migration 0007:
-liga quem casa por nome (ignorando caixa e espaco), e fica NULL para nome
-solto. Fica NULL tambem quando DUAS contas tem o mesmo `nome` -- a coluna
-nao e unica, e escolher uma no palpite gravaria a task na pessoa errada; ai
-o texto segue sendo o unico registro, que e o que ele existe para ser.
+`task.autor_id` e `decisao.autor_id` saem de quem fez a chamada: ali o par
+nao conflita, porque o texto ao lado (`responsavel`) e outro conceito.
+
+`task.responsavel_id` e `nota.autor_id` sao resolvidos a cada escrita a
+partir do texto, com a mesma regra do backfill da migration 0007: liga quem
+casa por nome (ignorando caixa e espaco), e fica NULL para nome solto. Fica
+NULL tambem quando DUAS contas tem o mesmo `nome` -- a coluna nao e unica, e
+escolher uma no palpite gravaria na pessoa errada; ai o texto segue sendo o
+unico registro, que e o que ele existe para ser.
+
+Na nota isso importa porque texto e id sao o MESMO conceito: enquanto
+`autor_id` guardava quem chamou a API, uma nota escrita pelo MCP em nome da
+Marina saia assinada "Marina Alves" com o id da conta de servico. Quem esta
+logado assina a propria nota sempre -- aceitar o nome do corpo deixaria
+qualquer um assinar como outra pessoa.
 
 **Nao existe DELETE de usuario.** Apagar deixaria as tasks e decisoes da
 pessoa apontando para ninguem. `PATCH /usuarios/{id}` com `ativo: false`

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_session
+from backend.dominio.papeis import assinatura_da_nota
 from backend.repositorio import notas as repo
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import NotaEdicao, NotaNova, NotaOut
@@ -23,7 +24,12 @@ async def criar_nota(
     chamador.exigir("criar_nota")
     if nova.task_id is not None and await repo_tasks.buscar(session, nova.task_id) is None:
         raise HTTPException(404, f"task {nova.task_id} nao encontrada")
-    return await repo.criar(session, {**nova.model_dump(), "autor_id": chamador.id})
+
+    dados = nova.model_dump()
+    dados["autor"] = assinatura_da_nota(
+        chamador.nome, chamador.e_ia, dados.get("autor")
+    )
+    return await repo.criar(session, dados)
 
 
 @rotas.get("/notas", response_model=list[NotaOut])

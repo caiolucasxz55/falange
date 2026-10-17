@@ -6,10 +6,28 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models import Nota
+from backend.repositorio import usuarios
+
+
+async def _ligar_autor(session: AsyncSession, dados: dict) -> dict:
+    """Resolve o texto `autor` para `autor_id`, quando der.
+
+    Mesmo par de `task.responsavel`: o texto e o rotulo de quem nao tem
+    conta, o id e o fato quando tem. Antes `autor_id` guardava QUEM CHAMOU a
+    API, e isso brigava com o texto -- uma nota escrita pelo MCP em nome da
+    Marina saia com `autor: "Marina Alves"` e `autor_id` apontando para a
+    conta de servico. Dois campos para o mesmo conceito, discordando.
+
+    Nome solto (ou ambiguo) deixa NULL, e ai o texto e o unico registro.
+    """
+    if "autor" not in dados:
+        return dados
+    pessoa = await usuarios.buscar_por_nome(session, dados["autor"] or "")
+    return {**dados, "autor_id": pessoa.id if pessoa else None}
 
 
 async def criar(session: AsyncSession, dados: dict) -> Nota:
-    nota = Nota(**dados)
+    nota = Nota(**await _ligar_autor(session, dados))
     session.add(nota)
     await session.commit()
     await session.refresh(nota)
@@ -49,6 +67,11 @@ async def editar(session: AsyncSession, nota_id: int, campos: dict) -> Optional[
     nota = await session.get(Nota, nota_id)
     if nota is None:
         return None
+
+    # Trocar o texto do autor reaponta a FK no mesmo commit, senao as
+    # duas colunas passariam a discordar.
+    campos = await _ligar_autor(session, campos)
+
     for campo, valor in campos.items():
         setattr(nota, campo, valor)
     await session.commit()

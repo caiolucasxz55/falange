@@ -3,3 +3,6 @@
 __pycache__/
 *.db
 .claude/settings.local.json
+
+# Senhas das contas de demonstracao usadas nos prints.
+.contas-demo

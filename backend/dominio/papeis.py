@@ -169,6 +169,27 @@ def admin_sem_login(exigir_login: bool, existe_conta_humana: bool) -> bool:
     return not existe_conta_humana
 
 
+def assinatura_da_nota(
+    nome_chamador: Optional[str], e_ia: bool, autor_pedido: Optional[str]
+) -> Optional[str]:
+    """Quem assina a nota que esta sendo criada.
+
+    Uma PESSOA logada assina a propria nota, sempre: a API ja sabe quem ela
+    e, e aceitar um nome do corpo deixaria qualquer uma assinar como outra.
+
+    A conta de servico e a excecao, e a distincao nao e cosmetica: ela TEM
+    `nome` ("Falange IA"), entao uma regra que olhasse so o nome do chamador
+    faria toda nota vinda do MCP sair assinada por ela, engolindo o nome de
+    quem ditou -- o parametro `autor` da tool viraria enfeite. Foi o que
+    aconteceu na primeira versao disto.
+
+    Sem nome nenhum (tela sem login), vale o que veio no pedido.
+    """
+    if nome_chamador and not e_ia:
+        return nome_chamador
+    return autor_pedido
+
+
 # Prioridade que uma task assume quando ninguem escolhe. Escrever ESTE valor
 # nao e "definir prioridade": e aceitar o padrao.
 PRIORIDADE_PADRAO = "media"
