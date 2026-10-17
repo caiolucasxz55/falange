@@ -29,6 +29,9 @@ type Resultado =
 export function PainelAprendizado() {
   const { pode } = useSessao();
   const podeAtivar = pode("ativar_preferencia");
+  // Desligar uma regra passa por `criar_preferencia` na API; um leitor
+  // nao tem, e via os botoes mesmo assim.
+  const podeMexer = pode("criar_preferencia");
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [versao, setVersao] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
@@ -141,6 +144,7 @@ export function PainelAprendizado() {
                       Confirmar
                     </button>
                   )}
+                  {podeMexer && (
                   <button
                     type="button"
                     disabled={ocupado}
@@ -149,6 +153,7 @@ export function PainelAprendizado() {
                   >
                     Descartar
                   </button>
+                  )}
                 </div>
               </li>
             ))}
@@ -170,14 +175,16 @@ export function PainelAprendizado() {
                 {preferencia.descricao}
               </span>
               <span className="text-xs text-gray-400">{preferencia.origem}</span>
-              <button
-                type="button"
-                disabled={ocupado}
-                onClick={() => alternar(preferencia.id, false)}
-                className={`ml-auto shrink-0 ${botao}`}
-              >
-                Desativar
-              </button>
+              {podeMexer && (
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => alternar(preferencia.id, false)}
+                  className={`ml-auto shrink-0 ${botao}`}
+                >
+                  Desativar
+                </button>
+              )}
             </li>
           ))}
         </ul>

@@ -3,6 +3,7 @@
 import { type FormEvent, useState } from "react";
 
 import { apagarNota, editarNota, mensagemDoErro, resolverNota } from "@/lib/api";
+import { useSessao } from "@/components/SessaoProvider";
 import { diasDesde, type Nota } from "@/types/task";
 
 interface NotaItemProps {
@@ -13,6 +14,15 @@ interface NotaItemProps {
 
 /** Uma nota da lista, com as acoes sobre ela. Erro fica dentro do item. */
 export function NotaItem({ nota, onAtualizada, onApagada }: NotaItemProps) {
+  // Um leitor via Resolver, Editar e Apagar e levava 403 nos tres.
+  const { pode, eu } = useSessao();
+  const podeResolver = pode("resolver_nota");
+  const podeEditar = pode("editar_nota");
+  const podeApagar =
+    pode("apagar_nota") ||
+    (pode("apagar_nota_propria") &&
+      nota.autor_id !== null &&
+      nota.autor_id === eu?.usuario?.id);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
@@ -134,30 +144,36 @@ export function NotaItem({ nota, onAtualizada, onApagada }: NotaItemProps) {
             <span>ha {diasDesde(nota.criada_em)}d</span>
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
-            <button
-              type="button"
-              className={botao}
-              disabled={ocupado}
-              onClick={alternarResolvida}
-            >
-              {nota.resolvida ? "Reabrir" : "Resolver"}
-            </button>
-            <button
-              type="button"
-              className={botao}
-              disabled={ocupado}
-              onClick={() => setEditando(true)}
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              className={botao}
-              disabled={ocupado}
-              onClick={() => setConfirmando(true)}
-            >
-              Apagar
-            </button>
+            {podeResolver && (
+              <button
+                type="button"
+                className={botao}
+                disabled={ocupado}
+                onClick={alternarResolvida}
+              >
+                {nota.resolvida ? "Reabrir" : "Resolver"}
+              </button>
+            )}
+            {podeEditar && (
+              <button
+                type="button"
+                className={botao}
+                disabled={ocupado}
+                onClick={() => setEditando(true)}
+              >
+                Editar
+              </button>
+            )}
+            {podeApagar && (
+              <button
+                type="button"
+                className={botao}
+                disabled={ocupado}
+                onClick={() => setConfirmando(true)}
+              >
+                Apagar
+              </button>
+            )}
           </div>
         </>
       )}
