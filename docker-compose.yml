@@ -82,5 +82,82 @@ services:
       backend:
         condition: service_healthy
 
+  # ------------------------------------------------------------------------
+  # Perfil `teste`: ambiente descartavel para verificacao ponta a ponta.
+  #
+  #     docker compose --profile teste up -d
+  #     docker compose --profile teste down
+  #
+  # Nao sobe com o `up` normal (profiles), e o `down` do perfil nao toca o
+  # banco real -- sao servicos, rede de volume e porta diferentes.
+  #
+  # Existe porque usar o Falange nele mesmo, sem isso, criaria e apagaria
+  # linhas no mesmo banco onde esta o backlog de verdade.
+  # ------------------------------------------------------------------------
+  db-teste:
+    profiles: ["teste"]
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: falange
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-falange}
+      POSTGRES_DB: falange
+    # tmpfs, nao volume: o banco mora em RAM e some quando o container para.
+    # E o ponto -- cada subida comeca limpa, sem ninguem lembrar de limpar.
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U falange -d falange"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate-teste:
+    profiles: ["teste"]
+    build: .
+    # Alem das migrations, semeia o projeto `sandbox`: a migration cria so o
+    # `padrao`, e o servidor MCP de teste escreve no sandbox.
+    #
+    # `-m` e nao `python scripts/...`: executado como arquivo, o Python
+    # poe no sys.path a pasta do SCRIPT, nao o diretorio atual, e o
+    # import de `backend` falha.
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m scripts.semear_projeto sandbox Sandbox"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://falange:${POSTGRES_PASSWORD:-falange}@db-teste:5432/falange
+    depends_on:
+      db-teste:
+        condition: service_healthy
+
+  backend-teste:
+    profiles: ["teste"]
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://falange:${POSTGRES_PASSWORD:-falange}@db-teste:5432/falange
+      LIMITE_SOBRECARGA: ${LIMITE_SOBRECARGA:-5}
+      API_TOKEN: ${API_TOKEN:-}
+      # Teto alto: a verificacao faz rajada, e aqui nao ha o que proteger.
+      LIMITE_POR_MINUTO: ${LIMITE_POR_MINUTO_TESTE:-5000}
+      JWT_SEGREDO: ${JWT_SEGREDO:-}
+      JWT_MINUTOS: ${JWT_MINUTOS:-15}
+      SESSAO_DIAS: ${SESSAO_DIAS:-14}
+      # Sempre false aqui: o banco nasce sem conta humana a cada subida,
+      # entao o token compartilhado vale como admin e a verificacao nao
+      # precisa criar usuario antes de cada rodada.
+      EXIGIR_LOGIN: "false"
+    ports:
+      # 8011 no host, ao lado da 8010 do backend real.
+      - "8011:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    depends_on:
+      migrate-teste:
+        condition: service_completed_successfully
+
 volumes:
   pgdata:

@@ -2,11 +2,27 @@
   "mcpServers": {
     "falange": {
       "command": "C:/Users/Acer/Desktop/codigos/falange/.venv/Scripts/python.exe",
-      "args": ["-m", "falange_mcp.stdio"],
+      "args": [
+        "-m",
+        "falange_mcp.stdio"
+      ],
       "env": {
         "PYTHONPATH": "C:/Users/Acer/Desktop/codigos/falange",
         "BACKEND_URL": "http://127.0.0.1:8010",
         "FALANGE_DOCS_ROOT": "C:/Users/Acer/Desktop/codigos/falange"
+      }
+    },
+    "falange-teste": {
+      "command": "C:/Users/Acer/Desktop/codigos/falange/.venv/Scripts/python.exe",
+      "args": [
+        "-m",
+        "falange_mcp.stdio"
+      ],
+      "env": {
+        "PYTHONPATH": "C:/Users/Acer/Desktop/codigos/falange",
+        "BACKEND_URL": "http://127.0.0.1:8011",
+        "FALANGE_DOCS_ROOT": "C:/Users/Acer/Desktop/codigos/falange",
+        "FALANGE_PROJETO": "sandbox"
       }
     }
   }

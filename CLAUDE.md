@@ -105,10 +105,23 @@ mover depois. O projeto vem da env `FALANGE_PROJETO` do SERVIDOR que voce
 esta usando, e vai em toda chamada.
 
 `ver_projeto` diz onde voce esta. Consulte antes de criar ou apagar quando
-houver qualquer duvida -- principalmente se houver mais de um servidor
-`falange*` configurado.
+houver qualquer duvida.
 
 Criar projeto e do admin, na tela. Voce nao cria.
+
+### Dois servidores: use o certo
+
+- `mcp__falange__*` e o **backlog real**. Nunca receba dado de teste.
+- `mcp__falange-teste__*` e o **sandbox descartavel** (backend na 8011,
+  banco em tmpfs que se zera a cada subida).
+
+**Toda verificacao ponta a ponta vai no `falange-teste`**: criar task para
+conferir um comportamento, exercitar bloqueio, testar erro. Se o servidor de
+teste nao responder, suba com `docker compose --profile teste up -d` -- nao
+caia para o `falange` por conveniencia.
+
+O `falange` so recebe o que e trabalho de verdade: a task que o dev pediu, a
+nota que ele ditou, a decisao que ele tomou.
 
 ## Autenticacao e papeis
 

@@ -16,7 +16,7 @@ import pathlib
 import pytest
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-PASTAS = ("backend", "falange_mcp", "tests")
+PASTAS = ("backend", "falange_mcp", "tests", "scripts")
 
 # Globais que o Python injeta em todo modulo e que o AST nao mostra ligados.
 INJETADOS = {"__file__", "__name__", "__doc__", "__package__"}

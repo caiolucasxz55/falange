@@ -139,6 +139,32 @@ projeto. A IA ter ganhado autonomia num contexto nao diz nada sobre outro.
 - Nao existe remocao de projeto: apagar levaria junto tudo o que pertence a
   ele.
 
+## Ambiente de teste
+
+Um segundo backend, com banco proprio, para verificacao ponta a ponta nao
+tocar o backlog real:
+
+    docker compose --profile teste up -d
+
+Sobe `db-teste` (Postgres em **tmpfs** -- mora em RAM e some quando o
+container para), `migrate-teste` (migrations + semeia o projeto `sandbox`) e
+`backend-teste` na **8011**, ao lado da 8010 do real.
+
+Cada subida comeca limpa. Nao e so conveniencia: banco de teste que persiste
+vira banco de teste sujo, e ai ninguem confia no resultado.
+
+O banco de teste nasce sem conta humana, entao o `API_TOKEN` vale como admin
+ali (ver "Primeiro admin"). E o que deixa a verificacao rodar sem criar
+usuario antes de cada rodada.
+
+**Cuidado com o `down`.** O `down` do Compose e do PROJETO inteiro, nao do
+perfil: `docker compose --profile teste down` derruba tambem o backend real.
+O dado nao se perde (o banco real esta em volume nomeado, e `down` sem `-v`
+nao apaga volume), mas a stack para. Para derrubar so o teste, nomeie os
+servicos:
+
+    docker compose down db-teste migrate-teste backend-teste
+
 ## Configuracao
 
 Cada pacote tem a sua, lida do `.env` ou de variaveis de ambiente:
