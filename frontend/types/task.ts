@@ -210,8 +210,11 @@ export type Origem = "ia" | "humano";
 export type Papel = "admin" | "lead" | "dev" | "leitor" | "ia";
 
 /**
- * Acoes que a API protege. Vem de `dominio/papeis.py`; a tela usa para
- * nao desenhar botao que vai dar 403.
+ * Acoes que a API protege.
+ *
+ * Espelha `ACOES` de `backend/dominio/papeis.py`, e precisa ser mantida em
+ * sincronia a mao: acao nova la sem a entrada aqui vira erro de tipo na
+ * primeira vez que a tela consultar `pode(...)`, que e o aviso barato.
  */
 export type Acao =
   | "ler"
@@ -234,7 +237,8 @@ export type Acao =
   | "promover_autonomia"
   | "rebaixar_autonomia"
   | "definir_configuracao"
-  | "gerir_usuarios";
+  | "gerir_usuarios"
+  | "gerir_projetos";
 
 export interface Usuario {
   id: number;
@@ -276,4 +280,27 @@ export interface EdicaoUsuario {
   nome?: string;
   papel?: Papel;
   ativo?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// projetos
+// ---------------------------------------------------------------------------
+
+export interface Projeto {
+  id: number;
+  slug: string;
+  nome: string;
+  criado_em: string;
+}
+
+/** GET /projeto: em qual projeto a chamada caiu. */
+export interface ProjetoAtual {
+  projeto: Projeto;
+  /** true quando a tela nao escolheu nada e caiu no projeto comum. */
+  padrao: boolean;
+}
+
+export interface NovoProjeto {
+  slug: string;
+  nome: string;
 }

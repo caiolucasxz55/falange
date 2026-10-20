@@ -16,4 +16,6 @@ rotas = APIRouter(tags=["saude"])
 
 @rotas.get("/health")
 async def health(session: AsyncSession = Depends(get_session)):
-    return {"status": "ok", **(await repo.contagem_por_bloco(session))}
+    # Global de proposito: `/health` responde antes de qualquer
+    # autenticacao e nao recebe projeto.
+    return {"status": "ok", **(await repo.contagem_global(session))}

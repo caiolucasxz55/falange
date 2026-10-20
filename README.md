@@ -102,6 +102,43 @@ No modo de transicao (`EXIGIR_LOGIN=false`) a tela mostra um aviso "sem
 login" e um link "entrar com uma conta": sem ele, o login ficaria
 inalcancavel, porque `/eu` responde 200 e a tela nunca cairia no formulario.
 
+## Projetos
+
+Task, nota, decisao, preferencia, configuracao e autonomia pertencem a um
+**projeto**. Usuario e sessao sao globais -- papel por projeto esta fora da
+V2.
+
+Existe para o Falange poder guardar o proprio backlog sem misturar com dado
+de verificacao: sem isso, testar o sistema ponta a ponta cria e apaga linhas
+no mesmo banco onde esta o trabalho real.
+
+O projeto vai no header `X-Falange-Projeto: <slug>`. Sem o header, vale o
+projeto `padrao`, que a migration 0008 cria e para onde ela move tudo o que
+ja existia. Slug desconhecido da **404**, e nao "cai no padrao": escrever no
+projeto errado por um typo seria pior que receber um erro.
+
+Dois projetos nao se enxergam. Buscar uma task de outro projeto da 404 --
+para quem pergunta de fora, ela nao existe. Ja relacionar coisas de projetos
+diferentes (dependencia, nota apontando para task) da **409**: o pedido e
+coerente, so cruza uma fronteira.
+
+Calibracao, perfil, priorizacao, configuracao e autonomia sao calculados por
+projeto. A IA ter ganhado autonomia num contexto nao diz nada sobre outro.
+
+- **Tela:** seletor no cabecalho, lembrado no navegador (`localStorage`).
+  Trocar recarrega a pagina de proposito: o projeto atravessa todos os
+  paineis, e avisar um a um deixaria a tela misturando dois projetos por
+  alguns instantes.
+- **MCP:** a env `FALANGE_PROJETO` define em que projeto AQUELE servidor
+  escreve, e vai no header em toda chamada. Vazia cai no padrao. Fica no
+  `.mcp.json` por servidor, nao no `.env`: e o que separa o backlog real do
+  sandbox descartavel. A tool `ver_projeto` responde onde a IA esta; criar
+  projeto e so do admin, pela tela.
+- **Papel:** `gerir_projetos` (listar e criar) e so de admin. Ver o projeto
+  atual basta poder `ler`.
+- Nao existe remocao de projeto: apagar levaria junto tudo o que pertence a
+  ele.
+
 ## Configuracao
 
 Cada pacote tem a sua, lida do `.env` ou de variaveis de ambiente:
@@ -242,6 +279,13 @@ proprio Next (`frontend/app/api/[...caminho]/route.ts`) que injeta a
 credencial no servidor e repassa. Qualquer `NEXT_PUBLIC_` acabaria no bundle,
 visivel para quem abrisse a pagina. Como o caminho e a mesma origem, o
 frontend tambem deixou de depender de CORS.
+
+O cookie so recebe `Secure` quando a requisicao chega por HTTPS (ou com
+`x-forwarded-proto: https`, atras de um proxy que termina TLS). Amarrar isso
+ao modo de producao quebrava `npm start` sobre http: o cookie saia `Secure`,
+nunca voltava, e o login respondia 201 com tudo depois dando 401. Em
+`http://localhost` o navegador disfarca -- ele trata localhost como contexto
+seguro --, mas num endereco de rede a sessao morria calada.
 
 Com login, esse proxy guarda o access e o refresh da pessoa em cookies
 **HttpOnly**: o JavaScript da pagina nao os alcanca, entao um XSS na tela nao

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { mensagemDoErro, sair, trocarSenha } from "@/lib/api";
+import { SeletorProjeto } from "@/components/SeletorProjeto";
 import { useSessao } from "@/components/SessaoProvider";
 import type { Papel } from "@/types/task";
 
@@ -47,9 +48,10 @@ export function Cabecalho({ onEntrar }: CabecalhoProps) {
     <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Falange</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 mb-2 text-sm text-gray-500">
           A lista atualiza sozinha a cada 15s enquanto a aba estiver visivel.
         </p>
+        <SeletorProjeto />
       </div>
 
       <div className="flex flex-col items-end gap-1 text-sm">

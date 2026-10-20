@@ -98,6 +98,18 @@ de mais gente, sem virar task bloqueada so para ser discutida. `listar_notas`
 le, `resolver_nota` fecha sem apagar, `editar_nota` corrige (e reabre, com
 `resolvida=false`) e `apagar_nota` remove de vez.
 
+## Projetos: saiba onde voce esta
+
+Task, nota, decisao e preferencia pertencem a um projeto, e nao ha como
+mover depois. O projeto vem da env `FALANGE_PROJETO` do SERVIDOR que voce
+esta usando, e vai em toda chamada.
+
+`ver_projeto` diz onde voce esta. Consulte antes de criar ou apagar quando
+houver qualquer duvida -- principalmente se houver mais de um servidor
+`falange*` configurado.
+
+Criar projeto e do admin, na tela. Voce nao cria.
+
 ## Autenticacao e papeis
 
 O MCP le `API_TOKEN` do `.env` da raiz (caminho absoluto, porque o stdio nao

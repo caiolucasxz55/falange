@@ -21,6 +21,7 @@ from backend.models.enums import (
     TipoDecisao,
 )
 from backend.models.nota import Nota
+from backend.models.projeto import SLUG_PADRAO, Projeto
 from backend.models.task import Task
 from backend.models.usuario import Papel, Sessao, Usuario
 
@@ -39,6 +40,8 @@ __all__ = [
     "OrigemPreferencia",
     "Preferencia",
     "Prioridade",
+    "Projeto",
+    "SLUG_PADRAO",
     "Sessao",
     "Status",
     "Task",

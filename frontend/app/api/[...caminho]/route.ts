@@ -42,11 +42,34 @@ interface SessaoAberta {
 type Cofre = Awaited<ReturnType<typeof cookies>>;
 
 /**
- * `secure` fica de fora em dev (http://localhost): com ele, o navegador
- * descarta o cookie e o login "funciona" sem nunca logar. Em producao o
- * HTTPS e obrigatorio, e ai a flag volta.
+ * `secure` sai do PROTOCOLO da requisicao, nao de NODE_ENV.
+ *
+ * Amarrado a NODE_ENV, `npm start` sobre http marcava o cookie como Secure
+ * e ele nunca voltava: o login respondia 201 e a chamada seguinte dava 401.
+ * Em `http://localhost` isso passa despercebido, porque o navegador trata
+ * localhost como contexto seguro e manda assim mesmo -- mas num endereco de
+ * rede (o "Network" que o Next imprime ao subir) a sessao morria calada.
+ *
+ * Atras de um proxy que termina TLS, o protocolo real vem no
+ * `x-forwarded-proto`; sem ele, vale o esquema da propria URL.
  */
-function guardar(cofre: Cofre, nome: string, valor: string, maxAge: number): void {
+function sobreHttps(requisicao: Request): boolean {
+  const encaminhado = requisicao.headers.get("x-forwarded-proto");
+  if (encaminhado) return encaminhado.split(",")[0].trim() === "https";
+  try {
+    return new URL(requisicao.url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function guardar(
+  cofre: Cofre,
+  requisicao: Request,
+  nome: string,
+  valor: string,
+  maxAge: number,
+): void {
   cofre.set({
     name: nome,
     value: valor,
@@ -54,16 +77,32 @@ function guardar(cofre: Cofre, nome: string, valor: string, maxAge: number): voi
     sameSite: "lax",
     path: "/",
     maxAge,
-    secure: process.env.NODE_ENV === "production",
+    secure: sobreHttps(requisicao),
   });
 }
 
-function guardarSessao(cofre: Cofre, sessao: SessaoAberta): void {
+function guardarSessao(
+  cofre: Cofre,
+  requisicao: Request,
+  sessao: SessaoAberta,
+): void {
   // O cookie do access vive um pouco mais que a validade do token: assim ele
   // chega ao backend, toma 401 e dispara a renovacao, em vez de desaparecer
   // antes e fazer a tela cair para o token compartilhado sem avisar.
-  guardar(cofre, COOKIE_ACCESS, sessao.access, sessao.expira_em_minutos * 60 + 60);
-  guardar(cofre, COOKIE_REFRESH, sessao.refresh, 60 * 60 * 24 * DIAS_REFRESH);
+  guardar(
+    cofre,
+    requisicao,
+    COOKIE_ACCESS,
+    sessao.access,
+    sessao.expira_em_minutos * 60 + 60,
+  );
+  guardar(
+    cofre,
+    requisicao,
+    COOKIE_REFRESH,
+    sessao.refresh,
+    60 * 60 * 24 * DIAS_REFRESH,
+  );
 }
 
 function limparSessao(cofre: Cofre): void {
@@ -87,6 +126,11 @@ function cabecalhos(
   if (credencial) saida.set("Authorization", `Bearer ${credencial}`);
   const tipo = requisicao.headers.get("content-type");
   if (tipo) saida.set("Content-Type", tipo);
+  // O projeto escolhido na tela viaja ate o backend. O proxy monta um
+  // conjunto novo de headers, entao o que nao for repassado aqui se
+  // perde -- e a chamada cairia no projeto padrao sem avisar.
+  const projeto = requisicao.headers.get("x-falange-projeto");
+  if (projeto) saida.set("X-Falange-Projeto", projeto);
   return saida;
 }
 
@@ -156,7 +200,7 @@ async function encaminhar(
   if (!access && refresh && !eLogin) {
     const nova = await renovar(refresh);
     if (nova) {
-      guardarSessao(cofre, nova);
+      guardarSessao(cofre, requisicao, nova);
       access = nova.access;
     } else {
       limparSessao(cofre);
@@ -187,7 +231,7 @@ async function encaminhar(
   if (resposta.status === 401 && access && refresh && !eLogin) {
     const nova = await renovar(refresh);
     if (nova) {
-      guardarSessao(cofre, nova);
+      guardarSessao(cofre, requisicao, nova);
       const repetida = await chamar(
         destino,
         requisicao.method,
@@ -206,7 +250,7 @@ async function encaminhar(
 
   if (eLogin && resposta.ok) {
     const sessao = JSON.parse(texto) as SessaoAberta;
-    guardarSessao(cofre, sessao);
+    guardarSessao(cofre, requisicao, sessao);
     // Os tokens ficam nos cookies e NAO voltam para o navegador; a tela so
     // precisa saber quem entrou.
     const { access: _descartado, refresh: _tambem, ...publico } = sessao;

@@ -15,10 +15,15 @@ from backend.db import get_session
 from backend.dominio.calibracao import calibrar
 from backend.dominio.priorizacao import ranquear
 from backend.models import Bloco, Status
+from backend.models import Projeto
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import TaskOut
 from backend.schemas.texto import NomeOpcional
-from backend.seguranca.dependencias import Chamador, obter_chamador
+from backend.seguranca.dependencias import (
+    Chamador,
+    obter_chamador,
+    obter_projeto,
+)
 
 rotas = APIRouter(tags=["analise"])
 
@@ -29,6 +34,7 @@ async def priorizacao(
     bloco: Optional[Bloco] = None,
     limite: int = Query(5, ge=1, le=50),
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     """Ranking explicado das tasks que dao para pegar agora.
@@ -40,13 +46,15 @@ async def priorizacao(
     chamador.exigir("ler")
     tasks = [
         TaskOut.model_validate(t).model_dump()
-        for t in await repo_tasks.listar(session)
+        for t in await repo_tasks.listar(session, projeto.id)
     ]
 
     # Carga so de quem aparece como responsavel: alimenta o aviso de sobrecarga.
     cargas = {}
     for nome in {t["responsavel"] for t in tasks if t["responsavel"]}:
-        abertas = await repo_tasks.contar_abertas(session, responsavel=nome)
+        abertas = await repo_tasks.contar_abertas(
+            session, projeto.id, responsavel=nome
+        )
         cargas[nome] = {
             "tasks_abertas": abertas,
             "limite": settings.limite_sobrecarga,
@@ -64,6 +72,7 @@ async def priorizacao(
 @rotas.get("/calibracao")
 async def calibracao(
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     """Compara a estimativa com a duracao real das tasks ja concluidas.
@@ -71,5 +80,7 @@ async def calibracao(
     So entram tasks com os dois marcos de tempo; o resto nao da para medir.
     """
     chamador.exigir("ler")
-    concluidas = await repo_tasks.listar(session, status=Status.concluida)
+    concluidas = await repo_tasks.listar(
+        session, projeto.id, status=Status.concluida
+    )
     return calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])

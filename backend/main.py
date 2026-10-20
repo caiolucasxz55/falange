@@ -19,6 +19,7 @@ from backend.rotas import (
     autonomia,
     configuracao,
     notas,
+    projetos,
     saude,
     sessao,
     usuarios,
@@ -40,6 +41,7 @@ middlewares.registrar(app)
 app.include_router(saude.rotas)
 app.include_router(sessao.rotas)
 app.include_router(usuarios.rotas)
+app.include_router(projetos.rotas)
 app.include_router(rotas_tasks.rotas)
 app.include_router(notas.rotas)
 app.include_router(analise.rotas)

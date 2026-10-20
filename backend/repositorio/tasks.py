@@ -54,18 +54,45 @@ async def criar(session: AsyncSession, dados: dict) -> Task:
     return task
 
 
-async def buscar(session: AsyncSession, task_id: int) -> Optional[Task]:
-    return await session.get(Task, task_id)
+async def buscar(
+    session: AsyncSession, projeto_id: int, task_id: int
+) -> Optional[Task]:
+    """None tambem quando a task existe em OUTRO projeto.
+
+    De proposito: para quem pergunta de fora do projeto, ela nao
+    existe. Devolver a task e deixar a rota decidir vazaria o titulo
+    de um projeto para outro.
+    """
+    task = await session.get(Task, task_id)
+    return task if task is not None and task.projeto_id == projeto_id else None
+
+
+async def existe_em_outro_projeto(
+    session: AsyncSession, projeto_id: int, task_id: int
+) -> bool:
+    """A task existe, mas pertence a outro projeto?
+
+    Serve para a rota separar "nao existe" (404) de "existe, mas e de outro
+    projeto" (409). Nao devolve a task nem o projeto dela: so o suficiente
+    para a mensagem, sem vazar titulo de um projeto para outro.
+    """
+    task = await session.get(Task, task_id)
+    return task is not None and task.projeto_id != projeto_id
 
 
 async def listar(
     session: AsyncSession,
+    projeto_id: int,
     bloco: Optional[Bloco] = None,
     status: Optional[Status] = None,
     responsavel: Optional[str] = None,
     prioridade: Optional[Prioridade] = None,
 ) -> list[Task]:
-    q = select(Task).order_by(_ORDEM_PRIORIDADE, Task.id)
+    q = (
+        select(Task)
+        .where(Task.projeto_id == projeto_id)
+        .order_by(_ORDEM_PRIORIDADE, Task.id)
+    )
     if bloco is not None:
         q = q.where(Task.bloco == bloco)
     if status is not None:
@@ -77,7 +104,9 @@ async def listar(
     return list((await session.scalars(q)).all())
 
 
-async def _criaria_ciclo(session: AsyncSession, task_id: int, alvo_id: int) -> bool:
+async def _criaria_ciclo(
+    session: AsyncSession, projeto_id: int, task_id: int, alvo_id: int
+) -> bool:
     """Anda a cadeia de bloqueio a partir de alvo_id procurando voltar em task_id."""
     visitados: set[int] = set()
     atual: Optional[int] = alvo_id
@@ -87,25 +116,37 @@ async def _criaria_ciclo(session: AsyncSession, task_id: int, alvo_id: int) -> b
         if atual in visitados:
             return False
         visitados.add(atual)
-        t = await session.get(Task, atual)
+        t = await buscar(session, projeto_id, atual)
         atual = t.bloqueada_por if t else None
     return False
 
 
 async def definir_bloqueio(
-    session: AsyncSession, task_id: int, bloqueada_por: Optional[int]
+    session: AsyncSession,
+    projeto_id: int,
+    task_id: int,
+    bloqueada_por: Optional[int],
 ) -> tuple[Optional[Task], Optional[str]]:
-    """Retorna (task, erro). Recusa auto-bloqueio e ciclos."""
-    task = await session.get(Task, task_id)
+    """Retorna (task, erro). Recusa auto-bloqueio, ciclos e cruzar projeto."""
+    task = await buscar(session, projeto_id, task_id)
     if task is None:
         return None, f"task {task_id} nao encontrada"
 
     if bloqueada_por is not None:
         if bloqueada_por == task_id:
             return None, "uma task nao pode bloquear a si mesma"
-        if await session.get(Task, bloqueada_por) is None:
+        if await buscar(session, projeto_id, bloqueada_por) is None:
+            # Separar os dois casos importa: "nao existe" e erro de id, e a
+            # rota responde 404; "existe em outro projeto" e um pedido
+            # coerente que cruza fronteira, e a rota responde 409. A rota
+            # decide pelo texto, entao esta mensagem NAO pode dizer
+            # "nao encontrada".
+            if await existe_em_outro_projeto(session, projeto_id, bloqueada_por):
+                return None, (
+                    f"task bloqueadora {bloqueada_por} e de outro projeto"
+                )
             return None, f"task bloqueadora {bloqueada_por} nao encontrada"
-        if await _criaria_ciclo(session, task_id, bloqueada_por):
+        if await _criaria_ciclo(session, projeto_id, task_id, bloqueada_por):
             return None, (
                 f"bloquear {task_id} por {bloqueada_por} criaria um ciclo de dependencia"
             )
@@ -118,9 +159,9 @@ async def definir_bloqueio(
 
 
 async def definir_status(
-    session: AsyncSession, task_id: int, status: Status
+    session: AsyncSession, projeto_id: int, task_id: int, status: Status
 ) -> Optional[Task]:
-    task = await session.get(Task, task_id)
+    task = await buscar(session, projeto_id, task_id)
     if task is None:
         return None
     task.status = status
@@ -137,7 +178,10 @@ async def definir_status(
         task.bloqueada_por = None
         await session.execute(
             update(Task)
-            .where(Task.bloqueada_por == task_id)
+            .where(
+                Task.bloqueada_por == task_id,
+                Task.projeto_id == projeto_id,
+            )
             .values(bloqueada_por=None, atualizada_em=func.now())
         )
     else:
@@ -149,8 +193,25 @@ async def definir_status(
     return task
 
 
-async def contagem_por_bloco(session: AsyncSession) -> dict:
+async def contagem_global(session: AsyncSession) -> dict:
+    """Contagem de TODOS os projetos, para o healthcheck.
+
+    O `/health` responde antes de qualquer autenticacao e nao recebe
+    projeto; escopar no `padrao` faria o numero mentir assim que existisse
+    um segundo projeto.
+    """
     q = select(Task.bloco, func.count(Task.id)).group_by(Task.bloco)
+    bruto = {bloco.value: n for bloco, n in (await session.execute(q)).all()}
+    por_bloco = {b.value: bruto.get(b.value, 0) for b in Bloco}
+    return {"total": sum(por_bloco.values()), "por_bloco": por_bloco}
+
+
+async def contagem_por_bloco(session: AsyncSession, projeto_id: int) -> dict:
+    q = (
+        select(Task.bloco, func.count(Task.id))
+        .where(Task.projeto_id == projeto_id)
+        .group_by(Task.bloco)
+    )
     bruto = {bloco.value: n for bloco, n in (await session.execute(q)).all()}
     por_bloco = {b.value: bruto.get(b.value, 0) for b in Bloco}
     return {"total": sum(por_bloco.values()), "por_bloco": por_bloco}
@@ -158,10 +219,13 @@ async def contagem_por_bloco(session: AsyncSession) -> dict:
 
 async def contar_abertas(
     session: AsyncSession,
+    projeto_id: int,
     bloco: Optional[Bloco] = None,
     responsavel: Optional[str] = None,
 ) -> int:
-    q = select(func.count(Task.id)).where(Task.status.in_(ABERTAS))
+    q = select(func.count(Task.id)).where(
+        Task.status.in_(ABERTAS), Task.projeto_id == projeto_id
+    )
     if bloco is not None:
         q = q.where(Task.bloco == bloco)
     if responsavel is not None:
@@ -170,7 +234,11 @@ async def contar_abertas(
 
 
 async def editar(
-    session: AsyncSession, task_id: int, campos: dict, fonte: Optional[str] = None
+    session: AsyncSession,
+    projeto_id: int,
+    task_id: int,
+    campos: dict,
+    fonte: Optional[str] = None,
 ) -> Optional[Task]:
     """Altera apenas os campos presentes em `campos`.
 
@@ -179,7 +247,7 @@ async def editar(
     vira uma `decisao` do tipo ajuste_humano. Ninguem precisa anotar nada:
     e assim que o Falange aprende com o que o time desfaz.
     """
-    task = await session.get(Task, task_id)
+    task = await buscar(session, projeto_id, task_id)
     if task is None:
         return None
 
@@ -202,6 +270,7 @@ async def editar(
         alterados = {c: v for c, v in depois.items() if v != antes[c]}
         if alterados:
             registro = {
+                "projeto_id": projeto_id,
                 "tipo": TipoDecisao.ajuste_humano,
                 "sugerido": {c: antes[c] for c in alterados},
                 "escolhido": alterados,
@@ -210,17 +279,17 @@ async def editar(
                 "task_id": task_id,
             }
             session.add(Decisao(**registro))
-            await rebaixar_se_preciso(session, registro)
+            await rebaixar_se_preciso(session, projeto_id, registro)
 
     await session.commit()
     await session.refresh(task)
     return task
 
 
-async def remover(session: AsyncSession, task_id: int) -> bool:
+async def remover(session: AsyncSession, projeto_id: int, task_id: int) -> bool:
     """Remove a task. Quem dependia dela fica com bloqueada_por = NULL
     (ON DELETE SET NULL), entao ninguem sobra apontando para um id morto."""
-    task = await session.get(Task, task_id)
+    task = await buscar(session, projeto_id, task_id)
     if task is None:
         return False
     await session.delete(task)

@@ -9,6 +9,7 @@ from backend.db import get_session
 from backend.dominio.calibracao import calibrar
 from backend.dominio.perfil import montar as montar_perfil
 from backend.models import OrigemPreferencia, Status, TipoDecisao
+from backend.models import Projeto
 from backend.repositorio import aprendizado as repo
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import (
@@ -19,7 +20,11 @@ from backend.schemas import (
     PreferenciaOut,
     TaskOut,
 )
-from backend.seguranca.dependencias import Chamador, obter_chamador
+from backend.seguranca.dependencias import (
+    Chamador,
+    obter_chamador,
+    obter_projeto,
+)
 
 rotas = APIRouter(tags=["aprendizado"])
 
@@ -28,13 +33,21 @@ rotas = APIRouter(tags=["aprendizado"])
 async def registrar_decisao(
     nova: DecisaoNova,
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     chamador.exigir("registrar_decisao")
-    if nova.task_id is not None and await repo_tasks.buscar(session, nova.task_id) is None:
-        raise HTTPException(404, f"task {nova.task_id} nao encontrada")
+    if nova.task_id is not None:
+        if await repo_tasks.buscar(session, projeto.id, nova.task_id) is None:
+            if await repo_tasks.existe_em_outro_projeto(
+                session, projeto.id, nova.task_id
+            ):
+                raise HTTPException(
+                    409, f"task {nova.task_id} e de outro projeto"
+                )
+            raise HTTPException(404, f"task {nova.task_id} nao encontrada")
     return await repo.criar_decisao(
-        session, {**nova.model_dump(), "autor_id": chamador.id}
+        session, projeto.id, {**nova.model_dump(), "autor_id": chamador.id}
     )
 
 
@@ -42,16 +55,18 @@ async def registrar_decisao(
 async def listar_decisoes(
     tipo: Optional[TipoDecisao] = None,
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     chamador.exigir("ler")
-    return await repo.listar_decisoes(session, tipo=tipo)
+    return await repo.listar_decisoes(session, projeto.id, tipo=tipo)
 
 
 @rotas.post("/preferencias", response_model=PreferenciaOut, status_code=201)
 async def registrar_preferencia(
     nova: PreferenciaNova,
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     """Explicita nasce ativa; inferida nasce inativa e espera confirmacao.
@@ -65,17 +80,18 @@ async def registrar_preferencia(
     dados["ativa"] = nova.origem is OrigemPreferencia.explicita and chamador.pode(
         "ativar_preferencia"
     )
-    return await repo.criar_preferencia(session, dados)
+    return await repo.criar_preferencia(session, projeto.id, dados)
 
 
 @rotas.get("/preferencias", response_model=list[PreferenciaOut])
 async def listar_preferencias(
     ativa: Optional[bool] = None,
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     chamador.exigir("ler")
-    return await repo.listar_preferencias(session, ativa=ativa)
+    return await repo.listar_preferencias(session, projeto.id, ativa=ativa)
 
 
 @rotas.patch("/preferencias/{preferencia_id}", response_model=PreferenciaOut)
@@ -83,6 +99,7 @@ async def definir_preferencia(
     preferencia_id: int,
     body: PreferenciaEdicao,
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     """Ativa (confirmar) ou desativa.
@@ -95,7 +112,7 @@ async def definir_preferencia(
     else:
         chamador.exigir("criar_preferencia")
     preferencia = await repo.definir_preferencia_ativa(
-        session, preferencia_id, body.ativa
+        session, projeto.id, preferencia_id, body.ativa
     )
     if preferencia is None:
         raise HTTPException(404, f"preferencia {preferencia_id} nao encontrada")
@@ -105,18 +122,21 @@ async def definir_preferencia(
 @rotas.get("/perfil")
 async def perfil(
     chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     """O que o Falange aprendeu: calibracao, aceitacao, correcoes e padroes."""
     chamador.exigir("ler")
     decisoes = [
         DecisaoOut.model_validate(d).model_dump()
-        for d in await repo.listar_decisoes(session)
+        for d in await repo.listar_decisoes(session, projeto.id)
     ]
     preferencias = [
         PreferenciaOut.model_validate(p).model_dump()
-        for p in await repo.listar_preferencias(session)
+        for p in await repo.listar_preferencias(session, projeto.id)
     ]
-    concluidas = await repo_tasks.listar(session, status=Status.concluida)
+    concluidas = await repo_tasks.listar(
+        session, projeto.id, status=Status.concluida
+    )
     calibracao = calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])
     return montar_perfil(decisoes, preferencias, calibracao)

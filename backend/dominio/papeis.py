@@ -45,9 +45,13 @@ ACOES = (
     "rebaixar_autonomia",
     "definir_configuracao",
     "gerir_usuarios",
+    "gerir_projetos",
 )
 
 # A matriz. Ler na vertical: o que cada papel alcanca.
+#
+# `admin` recebe ACOES inteiro, entao toda acao nova nasce so dele. Dar a
+# outro papel e sempre explicito -- e o default seguro.
 #
 # `apagar_*_propria` existe para o dev: ele apaga o que criou, nao o que o
 # time criou. A rota tenta a acao ampla primeiro e cai na restrita, ai

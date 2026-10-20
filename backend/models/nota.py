@@ -16,6 +16,11 @@ class Nota(Base):
     __tablename__ = "nota"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Por projeto: o Falange guarda o proprio backlog sem misturar com
+    # dado de verificacao. Ver `models/projeto.py`.
+    projeto_id: Mapped[int] = mapped_column(
+        ForeignKey("projeto.id", ondelete="CASCADE"), index=True
+    )
     texto: Mapped[str] = mapped_column(Text)
 
     # Mesma ideia do responsavel da task: o texto e o rotulo, o id e o fato.

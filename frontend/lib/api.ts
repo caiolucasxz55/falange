@@ -1,3 +1,4 @@
+import { HEADER_PROJETO, projetoLembrado } from "@/lib/projeto";
 import type {
   Autonomia,
   Configuracao,
@@ -12,9 +13,12 @@ import type {
   NivelAutonomia,
   NovaTask,
   Perfil,
+  NovoProjeto,
   NovoUsuario,
   Preferencia,
   Priorizacao,
+  Projeto,
+  ProjetoAtual,
   SessaoAberta,
   Status,
   Task,
@@ -183,6 +187,28 @@ export function definirAutonomia(
 }
 
 // ---------------------------------------------------------------------------
+// projetos
+// ---------------------------------------------------------------------------
+
+/** GET /projeto. Em que projeto a tela esta escrevendo agora. */
+export function verProjeto(): Promise<ProjetoAtual> {
+  return pedir<ProjetoAtual>("/projeto");
+}
+
+/** GET /projetos. So admin. */
+export function listarProjetos(): Promise<Projeto[]> {
+  return pedir<Projeto[]>("/projetos");
+}
+
+/** POST /projetos. So admin. */
+export function criarProjeto(novo: NovoProjeto): Promise<Projeto> {
+  return pedir<Projeto>("/projetos", {
+    method: "POST",
+    body: JSON.stringify(novo),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // sessao e identidade
 // ---------------------------------------------------------------------------
 
@@ -258,7 +284,13 @@ export async function cortarSessoes(usuarioId: number): Promise<void> {
 
 async function pedir<T>(caminho: string, init: RequestInit = {}): Promise<T> {
   // Content-Type so quando ha corpo: num GET ele forcaria um preflight a toa.
-  const headers = init.body ? { "Content-Type": "application/json" } : undefined;
+  const headers: Record<string, string> = init.body
+    ? { "Content-Type": "application/json" }
+    : {};
+  // O projeto vai em TODA chamada: sem ele o backend usa o padrao, e
+  // a pessoa escreveria no projeto errado sem perceber.
+  const projeto = projetoLembrado();
+  if (projeto) headers[HEADER_PROJETO] = projeto;
 
   let resposta: Response;
   try {

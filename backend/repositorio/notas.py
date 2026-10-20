@@ -34,17 +34,26 @@ async def criar(session: AsyncSession, dados: dict) -> Nota:
     return nota
 
 
-async def buscar(session: AsyncSession, nota_id: int) -> Optional[Nota]:
-    return await session.get(Nota, nota_id)
+async def buscar(
+    session: AsyncSession, projeto_id: int, nota_id: int
+) -> Optional[Nota]:
+    """None tambem quando a nota e de outro projeto."""
+    nota = await session.get(Nota, nota_id)
+    return nota if nota is not None and nota.projeto_id == projeto_id else None
 
 
 async def listar(
     session: AsyncSession,
+    projeto_id: int,
     resolvida: Optional[bool] = None,
     task_id: Optional[int] = None,
 ) -> list[Nota]:
     """Mais recentes primeiro: nota nova e a que interessa."""
-    q = select(Nota).order_by(Nota.criada_em.desc(), Nota.id.desc())
+    q = (
+        select(Nota)
+        .where(Nota.projeto_id == projeto_id)
+        .order_by(Nota.criada_em.desc(), Nota.id.desc())
+    )
     if resolvida is not None:
         q = q.where(Nota.resolvida == resolvida)
     if task_id is not None:
@@ -52,8 +61,10 @@ async def listar(
     return list((await session.scalars(q)).all())
 
 
-async def resolver(session: AsyncSession, nota_id: int) -> Optional[Nota]:
-    nota = await session.get(Nota, nota_id)
+async def resolver(
+    session: AsyncSession, projeto_id: int, nota_id: int
+) -> Optional[Nota]:
+    nota = await buscar(session, projeto_id, nota_id)
     if nota is None:
         return None
     nota.resolvida = True
@@ -62,9 +73,11 @@ async def resolver(session: AsyncSession, nota_id: int) -> Optional[Nota]:
     return nota
 
 
-async def editar(session: AsyncSession, nota_id: int, campos: dict) -> Optional[Nota]:
+async def editar(
+    session: AsyncSession, projeto_id: int, nota_id: int, campos: dict
+) -> Optional[Nota]:
     """Altera apenas os campos presentes em `campos`."""
-    nota = await session.get(Nota, nota_id)
+    nota = await buscar(session, projeto_id, nota_id)
     if nota is None:
         return None
 
@@ -79,8 +92,10 @@ async def editar(session: AsyncSession, nota_id: int, campos: dict) -> Optional[
     return nota
 
 
-async def remover(session: AsyncSession, nota_id: int) -> bool:
-    nota = await session.get(Nota, nota_id)
+async def remover(
+    session: AsyncSession, projeto_id: int, nota_id: int
+) -> bool:
+    nota = await buscar(session, projeto_id, nota_id)
     if nota is None:
         return False
     await session.delete(nota)

@@ -66,6 +66,17 @@ def _erro_422(corpo: dict) -> str:
 CABECALHO_FONTE = {"X-Falange-Fonte": "mcp"}
 
 
+def _cabecalho_projeto() -> dict:
+    """Em que projeto este servidor escreve.
+
+    Vazio nao manda o header, e o backend cai no projeto padrao --
+    e o que mantem funcionando quem ainda nao configurou nada.
+    """
+    if not settings.falange_projeto:
+        return {}
+    return {"X-Falange-Projeto": settings.falange_projeto}
+
+
 def _pedir(metodo: str, caminho: str, **kw):
     """Chama o backend e NUNCA levanta: devolve o json ou {'erro': <frase>}.
 
@@ -73,7 +84,11 @@ def _pedir(metodo: str, caminho: str, **kw):
     nao diz nada para a IA. Um dict com 'erro' ela consegue ler e corrigir.
     """
     try:
-        cabecalhos = {**CABECALHO_FONTE, **(kw.pop("headers", None) or {})}
+        cabecalhos = {
+            **CABECALHO_FONTE,
+            **_cabecalho_projeto(),
+            **(kw.pop("headers", None) or {}),
+        }
         if settings.api_token:
             cabecalhos["Authorization"] = f"Bearer {settings.api_token}"
         r = httpx.request(
@@ -462,6 +477,21 @@ def ver_calibracao() -> dict:
     menor que `amostra_minima`). A duracao e tempo corrido, nao esforco.
     """
     return _pedir("GET", "/calibracao")
+
+
+def ver_projeto() -> dict:
+    """Em qual projeto do Falange voce esta escrevendo.
+
+    Consulte ANTES de criar ou apagar qualquer coisa quando houver
+    duvida: task, nota e preferencia ficam no projeto deste
+    servidor, e nao ha como mover depois.
+
+    `padrao: true` significa que este servidor nao foi configurado
+    com um projeto proprio e esta caindo no projeto comum.
+
+    Voce nao cria projeto: isso e do admin, na tela.
+    """
+    return _pedir("GET", "/projeto")
 
 
 def ver_configuracao() -> dict:

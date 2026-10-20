@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base
@@ -18,6 +18,10 @@ class Configuracao(Base):
 
     __tablename__ = "configuracao"
 
+    # PK composta: cada projeto tem o proprio ajuste.
+    projeto_id: Mapped[int] = mapped_column(
+        ForeignKey("projeto.id", ondelete="CASCADE"), primary_key=True
+    )
     chave: Mapped[str] = mapped_column(String(60), primary_key=True)
     valor: Mapped[str] = mapped_column(String(200))
     atualizada_em: Mapped[datetime] = mapped_column(

@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # Raiz permitida para gerar_tasks_a_partir_de_arquivo.
     falange_docs_root: str = "."
 
+    # Em que projeto este servidor escreve. Vai no header
+    # X-Falange-Projeto em toda chamada.
+    #
+    # Definida no .mcp.json por SERVIDOR, nao no .env: e o que
+    # separa o `falange` (backlog real) do `falange-teste`
+    # (sandbox descartavel). Vazia deixa o backend cair no padrao.
+    falange_projeto: str = ""
+
     # 127.0.0.1 local; no container precisa ser 0.0.0.0 para aceitar
     # conexao de fora. Definido via MCP_SSE_HOST no docker-compose.
     mcp_sse_host: str = "127.0.0.1"

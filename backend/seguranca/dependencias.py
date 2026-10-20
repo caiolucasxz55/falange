@@ -25,7 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import settings
 from backend.db import get_session
 from backend.dominio import papeis
-from backend.models import Papel, Usuario
+from backend.models import Papel, Projeto, Usuario
+from backend.repositorio import projetos as repo_projetos
 from backend.repositorio import usuarios as repo
 from backend.seguranca.sessao import ler_access
 from backend.seguranca.token import FONTE_MCP, PREFIXO
@@ -117,6 +118,34 @@ async def _do_access(
 
     # Papel do BANCO, nao do token.
     return Chamador(usuario, usuario.papel.value)
+
+
+async def obter_projeto(
+    session: AsyncSession = Depends(get_session),
+    x_falange_projeto: Optional[str] = Header(default=None),
+) -> Projeto:
+    """Em qual projeto esta esta chamada.
+
+    Vem do header `X-Falange-Projeto`. Sem header, o projeto `padrao` -- e o
+    que mantem funcionando todo cliente que ainda nao sabe de projeto.
+
+    Slug desconhecido e 404, e nao "cai no padrao": escrever no projeto
+    errado por causa de um typo seria pior que receber um erro.
+    """
+    if x_falange_projeto:
+        projeto = await repo_projetos.buscar_por_slug(session, x_falange_projeto)
+        if projeto is None:
+            raise HTTPException(
+                404, f"projeto '{x_falange_projeto}' nao existe"
+            )
+        return projeto
+
+    padrao = await repo_projetos.buscar_padrao(session)
+    if padrao is None:
+        raise HTTPException(
+            503, "projeto padrao ausente; rode as migrations"
+        )
+    return padrao
 
 
 async def obter_chamador(

@@ -30,6 +30,7 @@ TOOLS = (
     tools.listar_preferencias,
     tools.confirmar_preferencia,
     tools.desativar_preferencia,
+    tools.ver_projeto,
     tools.ver_configuracao,
     tools.definir_configuracao,
     tools.registrar_nota,

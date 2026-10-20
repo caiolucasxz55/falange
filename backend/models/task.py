@@ -18,6 +18,11 @@ class Task(Base):
     __tablename__ = "task"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Por projeto: o Falange guarda o proprio backlog sem misturar com
+    # dado de verificacao. Ver `models/projeto.py`.
+    projeto_id: Mapped[int] = mapped_column(
+        ForeignKey("projeto.id", ondelete="CASCADE"), index=True
+    )
     titulo: Mapped[str] = mapped_column(String(120))
     descricao: Mapped[str] = mapped_column(Text, default="")
     estimativa: Mapped[Estimativa] = mapped_column(Enum(Estimativa, name="estimativa"))

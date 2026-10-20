@@ -380,3 +380,9 @@ def test_mcp_sem_autor_deixa_a_nota_sem_assinatura():
 def test_sem_login_vale_o_que_veio_no_pedido():
     assert assinatura_da_nota(None, False, "Alguem De Fora") == "Alguem De Fora"
     assert assinatura_da_nota(None, False, None) is None
+
+
+def test_so_admin_gere_projetos():
+    assert pode("admin", "gerir_projetos")
+    for papel in ("lead", "dev", "leitor", PAPEL_IA):
+        assert not pode(papel, "gerir_projetos")

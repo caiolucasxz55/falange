@@ -26,6 +26,11 @@ class Decisao(Base):
     __tablename__ = "decisao"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Por projeto: o Falange guarda o proprio backlog sem misturar com
+    # dado de verificacao. Ver `models/projeto.py`.
+    projeto_id: Mapped[int] = mapped_column(
+        ForeignKey("projeto.id", ondelete="CASCADE"), index=True
+    )
     tipo: Mapped[TipoDecisao] = mapped_column(
         Enum(TipoDecisao, name="tipo_decisao"), index=True
     )
@@ -57,6 +62,11 @@ class Preferencia(Base):
     __tablename__ = "preferencia"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Por projeto: o Falange guarda o proprio backlog sem misturar com
+    # dado de verificacao. Ver `models/projeto.py`.
+    projeto_id: Mapped[int] = mapped_column(
+        ForeignKey("projeto.id", ondelete="CASCADE"), index=True
+    )
     descricao: Mapped[str] = mapped_column(String(200))
     origem: Mapped[OrigemPreferencia] = mapped_column(
         Enum(OrigemPreferencia, name="origem_preferencia")
@@ -76,6 +86,10 @@ class Autonomia(Base):
 
     __tablename__ = "autonomia"
 
+    # PK composta: o nivel de confianca vale por projeto.
+    projeto_id: Mapped[int] = mapped_column(
+        ForeignKey("projeto.id", ondelete="CASCADE"), primary_key=True
+    )
     tipo_acao: Mapped[TipoAcao] = mapped_column(
         Enum(TipoAcao, name="tipo_acao"), primary_key=True
     )
