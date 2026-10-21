@@ -3,11 +3,38 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
+# `MIN_CRITERIOS` nao e importado de proposito: aqui a lista vazia e
+# aceita, para a tela (que ainda nao manda criterio) nao parar de criar
+# task. O minimo de 1 e exigido pelo lint da pre-task, no MCP.
+from backend.models.criterio import (
+    MAX_CRITERIOS,
+    MAX_TEXTO_CRITERIO,
+    MIN_TEXTO_CRITERIO,
+)
 from backend.models.enums import Bloco, Estimativa, Origem, Prioridade, Status
 from backend.schemas.limites import MAX_DESCRICAO, recusar_nulos
 from backend.schemas.texto import NomeOpcional
+
+
+class CriterioOut(BaseModel):
+    """Um item do checklist de aceite da task."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    texto: str
+    ordem: int
+    # Nulo = nao verificado. Quem preenche e a Fase F, pela evidencia; nada
+    # na E2 marca criterio como cumprido, nem a tela.
+    cumprido_em: Optional[datetime] = None
 
 
 class TaskOut(BaseModel):
@@ -29,6 +56,10 @@ class TaskOut(BaseModel):
     travando: list[int] = Field(default_factory=list)
     bloqueada: bool = False
 
+    # Como se sabe que a task acabou. Vazia nas tasks antigas em que a
+    # migration 0010 nao achou a linha "Criterio de aceite:" na descricao.
+    criterios: list[CriterioOut] = Field(default_factory=list)
+
     status: Status
     prioridade: Prioridade
     criada_em: datetime
@@ -48,6 +79,38 @@ class TaskNova(BaseModel):
     # `origem` NAO entra aqui: e derivada do header X-Falange-Fonte pelo
     # backend. Deixar o cliente declarar quem escreveu a task permitiria
     # forjar autoria da IA e envenenar a calibracao e o perfil.
+
+    # De 1 a 5 criterios, 10 a 200 chars cada. O limite estrutural e aqui; se
+    # o criterio e observavel ou so uma promessa e julgamento do lint da
+    # pre-task, no MCP -- a API nao deve reprovar o texto de um humano na
+    # tela por heuristica de prosa.
+    #
+    # O default vazio e por compatibilidade: a tela ainda nao manda criterio,
+    # e exigir aqui derrubaria a criacao pela tela antes de ela aprender.
+    criterios: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_CRITERIOS,
+    )
+
+    @field_validator("criterios")
+    @classmethod
+    def _criterios_apresentaveis(cls, bruta: list[str]) -> list[str]:
+        """Apara, descarta vazio e confere o tamanho de cada um.
+
+        Aparar antes de medir e o que evita um criterio de espacos passar
+        pelo minimo de 10 chars.
+        """
+        limpos = [c.strip() for c in bruta]
+        limpos = [c for c in limpos if c]
+        for texto in limpos:
+            if not MIN_TEXTO_CRITERIO <= len(texto) <= MAX_TEXTO_CRITERIO:
+                raise ValueError(
+                    f"criterio com {len(texto)} chars; use de "
+                    f"{MIN_TEXTO_CRITERIO} a {MAX_TEXTO_CRITERIO}: '{texto[:40]}'"
+                )
+        if len(limpos) > MAX_CRITERIOS:
+            raise ValueError(f"no maximo {MAX_CRITERIOS} criterios por task")
+        return limpos
 
 
 class TaskEdicao(BaseModel):

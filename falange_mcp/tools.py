@@ -152,10 +152,16 @@ def criar_task(
     descricao: str = "",
     prioridade: str = "media",
     responsavel: str | None = None,
+    criterios: list[str] | None = None,
 ) -> dict:
     """Cria uma task. estimativa: PP/P/M/G. bloco: frontend/backend/infra/seguranca.
 
     prioridade: alta/media/baixa (padrao media).
+
+    criterios: de 1 a 5 criterios de aceite, 10 a 200 chars cada -- como se
+    SABE que a task acabou. Cada um tem de ser observavel ("o login com
+    token vencido retorna 401"), nao intencao ("funcionar bem"). Passe pelo
+    `validar_task` antes: ele reprova criterio que so promete qualidade.
     """
     estimativa = _canonizar(estimativa, ESTIMATIVAS)
     bloco = _canonizar(bloco, BLOCOS)
@@ -178,6 +184,7 @@ def criar_task(
             "bloco": bloco,
             "prioridade": prioridade,
             "responsavel": responsavel,
+            "criterios": criterios or [],
             # `origem` nao vai no corpo: o backend deriva do header
             # X-Falange-Fonte, para a autoria nao ser forjavel.
         },
@@ -838,8 +845,14 @@ def validar_task(
     bloco: str,
     prioridade: str = "media",
     checar_duplicata: bool = True,
+    criterios: list[str] | None = None,
 ) -> dict:
-    """Veredito sobre uma pre-task: aprovada ou precisa_de_ajuste + motivos."""
+    """Veredito sobre uma pre-task: aprovada ou precisa_de_ajuste + motivos.
+
+    `criterios` e a lista de aceite (1 a 5). Omitida, o veredito procura a
+    linha "Criterio de aceite:" na descricao, no formato antigo -- mas o
+    campo `criterios` da resposta devolve o que foi entendido, ja em lista.
+    """
     existentes = []
     if checar_duplicata:
         atuais = listar_tasks()
@@ -853,6 +866,7 @@ def validar_task(
             "estimativa": estimativa,
             "bloco": bloco,
             "prioridade": prioridade,
+            "criterios": criterios or [],
         },
         existentes,
     )

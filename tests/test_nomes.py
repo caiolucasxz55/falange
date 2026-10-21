@@ -58,3 +58,48 @@ def test_a_varredura_pega_um_import_faltando():
     arvore = ast.parse("def f():\n    return Origem.ia\n")
 
     assert nomes_livres(arvore) == {"Origem"}
+
+
+# ---------------------------------------------------------------------------
+# caractere de controle no fonte
+# ---------------------------------------------------------------------------
+
+
+# \t e \n sao legitimos; \r some no normalize do git. O resto nao tem o que
+# fazer em codigo-fonte.
+PERMITIDOS = {"\t", "\n", "\r"}
+
+
+def fontes():
+    """Os modulos varridos acima, mais as migrations.
+
+    `alembic/` entra aqui e nao em PASTAS porque o guarda de nomes nao
+    consegue ler migration (elas dependem de globais que o alembic injeta),
+    mas o guarda de bytes consegue -- e migration tambem e escrita por
+    script.
+    """
+    return modulos() + sorted((RAIZ / "alembic").rglob("*.py"))
+
+
+@pytest.mark.parametrize("caminho", sorted(fontes()), ids=str)
+def test_fonte_nao_tem_caractere_de_controle(caminho):
+    """Um script com escaping errado grava 0x08 onde devia ir a sequencia \\b.
+
+    Aconteceu de verdade, em `_VERBOS_OBSERVAVEIS` do template: 92
+    caracteres 0x08 no lugar de `\\b`. Os regex compilavam, os testes de
+    import passavam, e todo criterio de aceite era reprovado por "nao diz
+    nada observavel" -- porque nenhum padrao casava com nada.
+
+    E a pior classe de bug de edicao automatica: invisivel no diff, legal
+    para o parser, e errado em silencio. Esta varredura e a unica coisa que
+    olha para o byte.
+    """
+    texto = caminho.read_text(encoding="utf-8")
+    achados = sorted(
+        {c for c in texto if ord(c) < 32 and c not in PERMITIDOS}
+    )
+    assert not achados, (
+        f"{caminho.relative_to(RAIZ)} tem caractere de controle "
+        f"{[hex(ord(c)) for c in achados]}; provavelmente escaping comido "
+        "por script de edicao"
+    )

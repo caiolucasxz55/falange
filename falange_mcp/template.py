@@ -27,14 +27,25 @@ NIVEIS_AUTONOMIA = ("perguntar", "confirmar_em_lote", "automatico")
 
 _ORDEM = {e: i for i, e in enumerate(ESTIMATIVAS)}
 
+# De 1 a 5 criterios por task, 10 a 200 chars cada. Espelham
+# `backend/models/criterio.py`; o MCP nao importa nada de backend/.
+MIN_CRITERIOS, MAX_CRITERIOS = 1, 5
+MIN_TEXTO_CRITERIO, MAX_TEXTO_CRITERIO = 10, 200
+
 # Contrato devolvido para a IA junto com o conteudo do arquivo.
 TEMPLATE_CONTRATO = """\
 Cada pre-task DEVE ter exatamente estes campos:
 
   titulo      - imperativo, 6 a 80 chars, sem ponto final.
                 Ruim: "Melhorias no login". Bom: "Validar expiracao do token no login".
-  descricao   - 40 a 800 chars. Diga O QUE fazer e COMO saber que acabou.
-                Termine com uma linha "Criterio de aceite: ...".
+  descricao   - 40 a 800 chars. Diga O QUE fazer e POR QUE.
+  criterios   - lista de 1 a 5 textos, 10 a 200 chars cada: como se SABE que
+                acabou. Cada um tem de ser observavel -- algo que da para
+                olhar e dizer "cumpriu" ou "nao cumpriu".
+                Ruim: "funcionar bem", "o codigo fica mais limpo".
+                Bom: "o login com token vencido retorna 401",
+                     "a task bloqueada nao aparece em sugerir_proximas".
+                Cinco criterios e o teto: task que precisa de seis sao duas.
   estimativa  - PP (ate ~2h) | P (ate ~1 dia) | M (ate ~3 dias) | G (mais que isso).
                 G e sinal de que talvez deva virar duas tasks.
   bloco       - frontend | backend | infra | seguranca
@@ -96,6 +107,132 @@ def contar_sinais_escopo(texto: str) -> int:
     return sinais
 
 
+# Intencao disfarcada de criterio: promete uma qualidade, nao um fato que da
+# para observar. "Funcionar bem" nao e verificavel -- nunca se sabe se
+# cumpriu.
+_INTENCAO = [
+    r"\bfuncionar?\b", r"\bfuncionando\b", r"\bcorretamente\b",
+    r"\badequadamente\b", r"\bmelhor(ar|ia|ado)?\b", r"\botimiz(ar|ado)\b",
+    r"\bmais (rapido|limpo|simples|organizado|facil)\b",
+    r"\bfica(r)? (bom|melhor|legal|pronto)\b", r"\bsem (bugs?|problemas?)\b",
+    r"\bbem feito\b", r"\bde forma (eficiente|correta|adequada)\b",
+    r"\bperformance\b", r"\bqualidade do codigo\b",
+]
+
+# Um criterio observavel aponta para algo que se olha: um verbo de
+# observacao, um numero (409, 15 minutos, 2 replicas) ou um identificador
+# tecnico (/tasks, TaskOut, X-Falange-Fonte).
+_VERBOS_OBSERVAVEIS = [
+    r"\bretorna\b", r"\bdevolve\b", r"\bresponde\b", r"\brecusa\b",
+    r"\baceita\b", r"\baparece\b", r"\bexibe\b", r"\bmostra\b",
+    r"\bsome\b", r"\bnao aparece\b", r"\bgrava\b", r"\bguarda\b",
+    r"\bcria\b", r"\bapaga\b", r"\bremove\b", r"\bredireciona\b",
+    r"\bbloqueia\b", r"\bdestrava\b", r"\bpassa\b", r"\bfalha\b",
+    r"\bregistra\b", r"\bconta\b", r"\blista\b", r"\bmarca\b",
+    r"\bcontinua\b", r"\bdeixa de\b", r"\bpermanece\b", r"\bvolta\b",
+    r"\bcarrega\b", r"\babre\b", r"\bfecha\b", r"\bavisa\b",
+]
+_TECNICO = [r"\d", r"/[a-z]", r"[a-z]_[a-z]", r"[a-z][A-Z]", r"\b[A-Z]{2,}\b"]
+
+_MARCADOR_CRITERIO = re.compile(r"criterios?\s+de\s+aceite\s*:?\s*", re.I)
+_BULLET = re.compile(r"^\s*[-*]\s+", re.M)
+
+
+def extrair_criterios(descricao: str) -> list[str]:
+    """Os criterios escritos na descricao, no formato antigo de uma linha.
+
+    Existe para compatibilidade: antes da tabela `criterio`, o criterio de
+    aceite era uma linha dentro da descricao, e e isso que `/falange-gerar`
+    ainda produz. Reproduz a extracao da migration 0010 -- as duas leem o
+    mesmo formato, uma no banco e outra na pre-task.
+    """
+    if not descricao:
+        return []
+    sem_acento = normalizar(descricao)
+    achado = _MARCADOR_CRITERIO.search(sem_acento)
+    # Sem alinhamento de indices nao da para cortar no texto original, e
+    # devolver o normalizado perderia o acento de quem escreveu.
+    if not achado or len(sem_acento) != len(descricao):
+        return []
+
+    resto = descricao[achado.end():].strip()
+    if not resto:
+        return []
+    if _BULLET.search(resto):
+        brutos = [_BULLET.sub("", linha).strip() for linha in resto.splitlines()]
+    else:
+        brutos = [" ".join(resto.split())]
+    return [b for b in brutos if b][:MAX_CRITERIOS]
+
+
+def validar_criterios(criterios: list[str]) -> list[str]:
+    """Motivos para recusar esta lista de criterios. Vazia = aprovada.
+
+    So julga o que e mecanicamente verificavel: quantidade, tamanho,
+    repeticao, enchimento, promessa de intencao e ausencia de qualquer sinal
+    observavel. Nao tenta adivinhar se o criterio e o CERTO para a task --
+    isso e do dev.
+    """
+    motivos: list[str] = []
+    if len(criterios) < MIN_CRITERIOS:
+        return ["falta criterio de aceite: mande ao menos 1 (como se sabe que acabou)"]
+    if len(criterios) > MAX_CRITERIOS:
+        motivos.append(
+            f"{len(criterios)} criterios (no maximo {MAX_CRITERIOS}); "
+            "task que precisa de mais sao duas tasks"
+        )
+
+    vistos: dict[str, int] = {}
+    for i, bruto in enumerate(criterios[:MAX_CRITERIOS], start=1):
+        texto = (bruto or "").strip()
+        baixo = normalizar(texto)
+        rotulo = f"criterio {i}"
+
+        if len(texto) < MIN_TEXTO_CRITERIO:
+            motivos.append(
+                f"{rotulo} muito curto (minimo {MIN_TEXTO_CRITERIO} chars): '{texto}'"
+            )
+            # Sem texto nao ha o que julgar depois; evita empilhar motivos
+            # sobre a mesma falta.
+            continue
+        if len(texto) > MAX_TEXTO_CRITERIO:
+            motivos.append(
+                f"{rotulo} com {len(texto)} chars (maximo {MAX_TEXTO_CRITERIO}); "
+                "isso e descricao, nao criterio"
+            )
+
+        if baixo in vistos:
+            motivos.append(f"{rotulo} repetido (igual ao {vistos[baixo]})")
+        else:
+            vistos[baixo] = i
+
+        enchimento = {
+            re.search(p, baixo).group(0) for p in _ENCHIMENTO if re.search(p, baixo)
+        }
+        if enchimento:
+            motivos.append(
+                f"{rotulo} com enchimento de linguica: {', '.join(sorted(enchimento))}"
+            )
+
+        intencao = {
+            re.search(p, baixo).group(0) for p in _INTENCAO if re.search(p, baixo)
+        }
+        if intencao:
+            motivos.append(
+                f"{rotulo} promete intencao, nao fato ({', '.join(sorted(intencao))}): "
+                f"'{texto}' -- diga o que da para OBSERVAR"
+            )
+        elif not any(re.search(p, baixo) for p in _VERBOS_OBSERVAVEIS) and not any(
+            re.search(p, texto) for p in _TECNICO
+        ):
+            motivos.append(
+                f"{rotulo} nao diz nada observavel: '{texto}' -- o que se olha "
+                "para saber que cumpriu?"
+            )
+
+    return motivos
+
+
 def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None) -> dict:
     """Devolve {veredito, motivos, sinais_escopo, estimativa_sugerida}."""
     motivos: list[str] = []
@@ -124,8 +261,17 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
         motivos.append(f"descricao com {len(descricao)} chars (minimo 40); esta vaga")
     if len(descricao) > 800:
         motivos.append(f"descricao com {len(descricao)} chars (maximo 800); quebre a task")
-    if "criterio de aceite" not in descricao_norm:
-        motivos.append("falta a linha 'Criterio de aceite: ...' na descricao")
+
+    # --- criterios de aceite ---
+    # A lista e o contrato. Quando ela nao vem, o criterio e procurado na
+    # descricao, no formato antigo de uma linha: `/falange-gerar` ainda
+    # produz assim, e reprovar por isso quebraria o comando sem ganhar nada.
+    criterios = [
+        str(c).strip() for c in (pre_task.get("criterios") or []) if str(c).strip()
+    ]
+    if not criterios:
+        criterios = extrair_criterios(descricao)
+    motivos.extend(validar_criterios(criterios))
 
     # --- enchimento ---
     achados = set()
@@ -179,6 +325,7 @@ def validar_pre_task(pre_task: dict, tasks_existentes: list[dict] | None = None)
     return {
         "veredito": "aprovada" if not motivos else "precisa_de_ajuste",
         "motivos": motivos,
+        "criterios": criterios,
         "sinais_escopo": sinais,
         "estimativa_sugerida": sugerida,
     }

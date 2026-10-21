@@ -15,6 +15,7 @@ from backend.models import (
     Task,
     TipoDecisao,
 )
+from backend.repositorio import criterios as criterios_repo
 from backend.repositorio import usuarios
 from backend.repositorio.aprendizado import rebaixar_se_preciso
 
@@ -46,9 +47,21 @@ async def _ligar_responsavel(session: AsyncSession, dados: dict) -> dict:
     return {**dados, "responsavel_id": pessoa.id if pessoa else None}
 
 
-async def criar(session: AsyncSession, dados: dict) -> Task:
+async def criar(
+    session: AsyncSession, dados: dict, criterios: Optional[list[str]] = None
+) -> Task:
+    """Cria a task e, no MESMO commit, os criterios de aceite dela.
+
+    Os criterios entram por aqui, e nao numa chamada separada da rota, para
+    nao existir o estado intermediario de uma task sem o checklist que ela
+    declarou ter: ou nasce com os criterios, ou nao nasce.
+    """
     task = Task(**await _ligar_responsavel(session, dados))
     session.add(task)
+    # Flush em vez de commit: precisa do id para a FK do criterio, mas ainda
+    # dentro da mesma transacao.
+    await session.flush()
+    await criterios_repo.criar_para(session, task.id, criterios or [])
     await session.commit()
     await session.refresh(task)
     return task

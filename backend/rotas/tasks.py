@@ -16,6 +16,7 @@ from backend.dominio import grafo
 from backend.dominio.papeis import acoes_para_campos
 from backend.models import Bloco, Origem, Prioridade, Status
 from backend.models import Projeto
+from backend.repositorio import criterios as repo_criterios
 from backend.repositorio import dependencias as repo_deps
 from backend.repositorio import tasks as repo
 from backend.rotas.montagem import montar_task, montar_tasks
@@ -37,6 +38,23 @@ from backend.schemas import (
 rotas = APIRouter(tags=["tasks"])
 
 
+async def _montar_uma(
+    session: AsyncSession, projeto_id: int, task
+) -> TaskOut:
+    """Monta UMA task com tudo o que ela deriva.
+
+    Existe porque seis rotas devolvem uma task so, e cada uma repetia as
+    mesmas buscas. Uma esquecer um campo era questao de tempo -- e foi assim
+    que `criterios` entrou em cinco rotas de uma vez.
+    """
+    return montar_task(
+        task,
+        await repo_deps.listar_arestas(session, projeto_id),
+        await repo_deps.concluidas(session, projeto_id),
+        await repo_criterios.por_task(session, [task.id]),
+    )
+
+
 @rotas.post("/tasks", response_model=TaskOut, status_code=201)
 async def criar_task(
     nova: TaskNova,
@@ -56,10 +74,14 @@ async def criar_task(
     # Agora da para dizer QUEM, e nao so se foi IA ou humano.
     dados["autor_id"] = chamador.id
     dados["projeto_id"] = projeto.id
-    task = await repo.criar(session, dados)
+    # `criterios` nao e coluna da task: sai do dict antes de virar Task(**).
+    criterios = dados.pop("criterios", [])
+    task = await repo.criar(session, dados, criterios)
     # Task nova nao tem aresta, mas a saida passa pela mesma montagem:
     # um caminho so para o contrato nao divergir entre rotas.
-    return montar_task(task, [], set())
+    return montar_task(
+        task, [], set(), await repo_criterios.por_task(session, [task.id])
+    )
 
 
 @rotas.get("/tasks", response_model=list[TaskOut])
@@ -87,7 +109,9 @@ async def listar_tasks(
     # dependem de arestas que podem sair de tasks fora do filtro.
     arestas = await repo_deps.listar_arestas(session, projeto.id)
     concluidas = await repo_deps.concluidas(session, projeto.id)
-    saida = montar_tasks(tasks, arestas, concluidas)
+    # Uma consulta para a lista inteira: por task seria N+1 no board.
+    criterios = await repo_criterios.por_task(session, [t.id for t in tasks])
+    saida = montar_tasks(tasks, arestas, concluidas, criterios)
 
     # Este filtro e o unico que nao desce para o SQL: `bloqueada` nao e
     # coluna, e a resposta so existe depois da montagem.
@@ -144,11 +168,7 @@ async def buscar_task(
     task = await repo.buscar(session, projeto.id, task_id)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
-    return montar_task(
-        task,
-        await repo_deps.listar_arestas(session, projeto.id),
-        await repo_deps.concluidas(session, projeto.id),
-    )
+    return await _montar_uma(session, projeto.id, task)
 
 
 @rotas.post(
@@ -190,11 +210,7 @@ async def adicionar_dependencia(
         )
 
     await repo_deps.adicionar(session, task_id, alvo)
-    return montar_task(
-        task,
-        await repo_deps.listar_arestas(session, projeto.id),
-        await repo_deps.concluidas(session, projeto.id),
-    )
+    return await _montar_uma(session, projeto.id, task)
 
 
 @rotas.delete(
@@ -218,11 +234,7 @@ async def remover_dependencia(
         raise HTTPException(
             404, f"task {task_id} nao depende de {depende_de_id}"
         )
-    return montar_task(
-        task,
-        await repo_deps.listar_arestas(session, projeto.id),
-        await repo_deps.concluidas(session, projeto.id),
-    )
+    return await _montar_uma(session, projeto.id, task)
 
 
 @rotas.patch("/tasks/{task_id}/status", response_model=TaskOut)
@@ -237,11 +249,7 @@ async def mudar_status(
     task = await repo.definir_status(session, projeto.id, task_id, body.status)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
-    return montar_task(
-        task,
-        await repo_deps.listar_arestas(session, projeto.id),
-        await repo_deps.concluidas(session, projeto.id),
-    )
+    return await _montar_uma(session, projeto.id, task)
 
 
 @rotas.patch("/tasks/{task_id}", response_model=TaskOut)
@@ -276,11 +284,7 @@ async def editar_task(
     )
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
-    return montar_task(
-        task,
-        await repo_deps.listar_arestas(session, projeto.id),
-        await repo_deps.concluidas(session, projeto.id),
-    )
+    return await _montar_uma(session, projeto.id, task)
 
 
 # response_class=Response: um 204 nao pode ter corpo, e sem isso o FastAPI

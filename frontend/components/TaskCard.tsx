@@ -189,6 +189,39 @@ export function TaskCard({
             <span className="text-gray-400">ha {diasDesde(task.criada_em)}d</span>
           </div>
 
+          {task.criterios.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {task.criterios.map((criterio) => {
+                const cumprido = criterio.cumprido_em !== null;
+                return (
+                  <li
+                    key={criterio.id}
+                    className="flex items-start gap-1.5 text-xs text-gray-600"
+                  >
+                    {/*
+                      Quadradinho, nao <input type="checkbox">: nao e campo.
+                      Quem marca criterio e a evidencia, no backend -- um
+                      checkbox convidaria a clicar e nada aconteceria.
+                    */}
+                    <span
+                      aria-hidden
+                      className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] leading-none ${
+                        cumprido
+                          ? "border-green-600 bg-green-600 text-white"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {cumprido ? "✓" : ""}
+                    </span>
+                    <span className={cumprido ? "text-gray-400 line-through" : ""}>
+                      {criterio.texto}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
           {task.depende_de.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
               <span className="text-gray-500">depende de</span>

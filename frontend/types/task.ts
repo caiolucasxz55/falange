@@ -14,6 +14,22 @@ export type Bloco = (typeof BLOCOS)[number]; // "frontend" | "backend" | "infra"
 export type Status = (typeof STATUS)[number]; // "aberta" | "em_andamento" | "concluida"
 export type Prioridade = (typeof PRIORIDADES)[number]; // "alta" | "media" | "baixa"
 
+/** Um item do checklist de aceite da task (CriterioOut). */
+export interface Criterio {
+  id: number;
+  texto: string;
+  ordem: number;
+  /**
+   * Data ISO de quando foi verificado, ou null.
+   *
+   * Sempre null por enquanto: quem preenche e a Fase F, pela evidencia.
+   * A tela MOSTRA o checklist, nao marca -- clicar para dar por cumprido
+   * seria o dev atestando a si mesmo, que e o que a evidencia veio
+   * substituir.
+   */
+  cumprido_em: string | null;
+}
+
 /** Task como o backend devolve (TaskOut). */
 export interface Task {
   id: number;
@@ -32,6 +48,8 @@ export interface Task {
   travando: number[];
   /** Derivada: tem alguma dependencia ainda nao concluida. */
   bloqueada: boolean;
+  /** Como se sabe que acabou. Vazia nas tasks antigas, sem criterio escrito. */
+  criterios: Criterio[];
   status: Status;
   prioridade: Prioridade;
   /** Datas ISO 8601 com timezone, como o backend devolve. */
@@ -52,6 +70,8 @@ export interface NovaTask {
   bloco: Bloco;
   prioridade?: Prioridade;
   responsavel?: string | null;
+  /** De 1 a 5, 10 a 200 chars cada. A tela ainda nao envia. */
+  criterios?: string[];
 }
 
 /** Campos que o board consegue editar de uma task existente. */

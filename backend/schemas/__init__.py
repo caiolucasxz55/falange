@@ -27,6 +27,7 @@ from backend.schemas.usuario import (
     UsuarioOut,
 )
 from backend.schemas.task import (
+    CriterioOut,
     DependenciaNova,
     Carga,
     MudancaStatus,
@@ -41,6 +42,7 @@ __all__ = [
     "AutonomiaEdicao",
     "DependenciaNova",
     "Carga",
+    "CriterioOut",
     "ConfiguracaoEdicao",
     "ConfiguracaoOut",
     "DecisaoNova",

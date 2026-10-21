@@ -16,6 +16,12 @@ a #6").
 Antes de criar qualquer task, passe por `validar_task` e corrija o conteudo
 ate aprovar.
 
+Toda task nasce com `criterios`: de 1 a 5 criterios de aceite, cada um
+OBSERVAVEL -- algo que da para olhar e dizer "cumpriu" ou "nao cumpriu".
+"o login com token vencido retorna 401" vale; "funcionar bem" nao, e o
+`validar_task` reprova. Nao escreva mais o criterio como linha solta na
+descricao: a lista e o campo.
+
 Antes de estimar, chame `ver_calibracao`: ela diz o que cada classe valeu na
 pratica neste projeto e em cada bloco. Prefira o veredito do bloco quando
 houver amostra, e diga em uma linha quando a calibracao mudar a sua escolha.

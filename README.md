@@ -177,6 +177,66 @@ Remover e sempre de uma aresta especifica
 (`DELETE /tasks/{id}/dependencias/{outra}`). Com N:N, "desbloquear" sem dizer
 qual seria ambiguo.
 
+## Criterio de aceite
+
+O criterio de aceite ja era obrigatorio -- mas como uma **linha de texto**
+dentro da descricao, exigida pelo lint da pre-task. Servia para a pessoa
+ler, e so: nada no sistema sabia quantos criterios uma task tinha, nem
+quais faltavam.
+
+Agora cada criterio e uma linha da tabela `criterio`, de 1 a 5 por task,
+10 a 200 chars cada. O teto nao e arbitrario: task que precisa de seis
+criterios para ser explicada e duas tasks.
+
+`criar_task` aceita `criterios: list[str]`, e toda task sai da API com
+`criterios` montado junto de `depende_de` e `travando`.
+
+### O que o lint recusa
+
+Criterio tem de ser **observavel**: algo que da para olhar e dizer
+"cumpriu" ou "nao cumpriu". O lint (`falange_mcp/template.py`) recusa
+mecanicamente:
+
+| Recusa | Exemplo |
+|---|---|
+| promessa de intencao | "funcionar bem", "o codigo fica mais limpo" |
+| nada observavel | "a parte de backend da feature" |
+| enchimento | "retorna 409, 422 e afins" |
+| curto ou longo demais | "retorna" |
+| repetido | o mesmo criterio duas vezes |
+
+Aprova quando ha um verbo de observacao ("retorna", "aparece", "recusa"),
+um numero ou um identificador tecnico: "o login com token vencido retorna
+401" passa; "funcionar bem" nao.
+
+Esse julgamento mora **so no MCP**, de proposito. E heuristica de prosa, e
+reprovar o texto de um humano na tela por heuristica seria pior que deixar
+passar. A API garante o que e estrutural: quantidade, tamanho e aparo.
+
+### Onde o estado ainda nao existe
+
+`cumprido_em` nasce nulo e nada na Fase E o preenche -- nem a tela. O
+checklist do card **mostra**, nao marca: quem da um criterio por cumprido e
+a evidencia, na Fase F. Clicar para atestar a si mesmo e exatamente o que a
+evidencia veio substituir, entao o card desenha um quadradinho, nao um
+`<input type="checkbox">` que convidaria ao clique sem efeito.
+
+`evidencia_id` tambem nao existe ainda: uma coluna apontando para uma
+tabela que nao foi criada nao e uma FK, e um inteiro solto esperando virar
+uma. Entra na Fase F, junto da tabela que referencia.
+
+### As tasks que ja existiam
+
+A migration 0010 extrai das descricoes as linhas "Criterio de aceite: ..."
+e **mantem o texto onde esta**: reescrever a descricao para tirar a linha
+seria o upgrade editando conteudo que uma pessoa escreveu.
+
+E melhor esforco, com limites assumidos: task sem a linha fica com zero
+criterio (nao ha como inventar criterio para task antiga), bullet logo
+abaixo do marcador vira um criterio por bullet, e texto acima de 200 chars
+e cortado com reticencia. O "de 1 a 5" vale para o que se cria daqui pra
+frente.
+
 ## Ambiente de teste
 
 Um segundo backend, com banco proprio, para verificacao ponta a ponta nao
@@ -219,7 +279,7 @@ banco nem por engano.
 
 | Tool | Escreve no banco? |
 |---|---|
-| `criar_task` | sim |
+| `criar_task` | sim (com os criterios de aceite, no mesmo commit) |
 | `listar_tasks` | nao |
 | `editar_task` | sim (alteracao parcial) |
 | `apagar_task` | sim |
@@ -229,7 +289,7 @@ banco nem por engano.
 | `contar_tasks_por_bloco` | nao |
 | `verificar_sobrecarga` | nao |
 | `gerar_tasks_a_partir_de_arquivo` | **nao** - aceita arquivo ou pasta; so sugere, para voce revisar |
-| `validar_task` | nao |
+| `validar_task` | nao (recusa criterio que so promete intencao) |
 | `sugerir_proximas` | nao (ranking explicado) |
 | `ver_calibracao` | nao (estimado x real) |
 | `ver_perfil` | nao (o que o time ensinou) |
