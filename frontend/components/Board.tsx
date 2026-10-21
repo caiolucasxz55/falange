@@ -68,12 +68,12 @@ export function Board({ filtros, versao, onRecarregar }: BoardProps) {
     }
   }
 
-  // Quantas tasks cada uma esta travando, dentro do que foi carregado.
+  // Quantas tasks cada uma esta travando. Vem do backend, que conta sobre o
+  // grafo do projeto inteiro: contar aqui so veria o que foi carregado, e o
+  // filtro de bloco ou responsavel esconderia dependentes.
   const travando = new Map<number, number>();
   for (const task of tasks) {
-    if (task.bloqueada_por !== null) {
-      travando.set(task.bloqueada_por, (travando.get(task.bloqueada_por) ?? 0) + 1);
-    }
+    if (task.travando.length > 0) travando.set(task.id, task.travando.length);
   }
 
   function substituir(atualizada: Task) {

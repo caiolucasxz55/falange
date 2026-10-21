@@ -22,7 +22,13 @@ class TaskOut(BaseModel):
     # O id e o fato; o texto acima e o rotulo de quem nao tem conta.
     responsavel_id: Optional[int] = None
     autor_id: Optional[int] = None
-    bloqueada_por: Optional[int] = None
+
+    # Do grafo de dependencias, nao de coluna. `bloqueada` e DERIVADA de ter
+    # dependencia nao concluida: nao ha estado para ficar desatualizado.
+    depende_de: list[int] = Field(default_factory=list)
+    travando: list[int] = Field(default_factory=list)
+    bloqueada: bool = False
+
     status: Status
     prioridade: Prioridade
     criada_em: datetime
@@ -62,9 +68,10 @@ class TaskEdicao(BaseModel):
     )
 
 
-class Bloqueio(BaseModel):
-    # None = desbloquear. Um id = travada por aquela task.
-    bloqueada_por: Optional[int] = None
+class DependenciaNova(BaseModel):
+    """Uma aresta: esta task nao anda enquanto `depende_de` nao terminar."""
+
+    depende_de: int
 
 
 class MudancaStatus(BaseModel):

@@ -189,10 +189,14 @@ def listar_tasks(
     status: str | None = None,
     responsavel: str | None = None,
     prioridade: str | None = None,
+    bloqueada: bool | None = None,
 ) -> list | dict:
     """Lista tasks, das mais prioritarias para as menos.
 
     Filtros opcionais por bloco, status, responsavel e prioridade.
+
+    `bloqueada=True` traz so o que espera por dependencia nao concluida;
+    `False`, so o que da para pegar. Omitido, traz os dois.
     """
     bloco = _canonizar(bloco, BLOCOS)
     status = _canonizar(status, STATUS)
@@ -215,21 +219,43 @@ def listar_tasks(
         }.items()
         if v
     }
+    # Fora do dict por compreensao: `bloqueada=False` e um filtro valido, e
+    # o `if v` o descartaria junto com o None.
+    if bloqueada is not None:
+        params["bloqueada"] = bloqueada
     return _pedir("GET", "/tasks", params=params or None)
 
 
-def marcar_bloqueio(task_id: int, bloqueada_por: int | None = None) -> dict:
-    """Trava a task por outra. bloqueada_por = id da bloqueadora; None desbloqueia."""
+def adicionar_dependencia(task_id: int, depende_de: int) -> dict:
+    """Faz a task esperar por outra. Uma task pode esperar por VARIAS.
+
+    Devolve a task com `depende_de` (de quem ela espera), `travando`
+    (quem espera por ela) e `bloqueada` (tem dependencia nao
+    concluida).
+
+    Recusa com erro: depender de si mesma, de task de outro projeto,
+    ou fechar um ciclo -- inclusive um ciclo longo, de varios passos.
+    """
     return _pedir(
-        "PATCH", f"/tasks/{task_id}/bloqueio", json={"bloqueada_por": bloqueada_por}
+        "POST",
+        f"/tasks/{task_id}/dependencias",
+        json={"depende_de": depende_de},
+    )
+
+
+def remover_dependencia(task_id: int, depende_de: int) -> dict:
+    """Solta a task de uma dependencia. As outras continuam valendo."""
+    return _pedir(
+        "DELETE", f"/tasks/{task_id}/dependencias/{depende_de}"
     )
 
 
 def mudar_status(task_id: int, status: str) -> dict:
     """Move a task entre aberta / em_andamento / concluida.
 
-    Concluir limpa o bloqueio da propria task e tambem libera as tasks que
-    estavam bloqueadas por ela.
+    Nao mexe em dependencia nenhuma: `bloqueada` e derivada de ter
+    dependencia nao concluida, entao concluir uma task ja libera
+    quem esperava por ela, e reabrir volta a travar.
     """
     status = _canonizar(status, STATUS)
     erro = _checar(status, STATUS, "status")

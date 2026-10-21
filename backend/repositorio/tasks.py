@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import case, func, select, update
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.dominio.perfil import CAMPOS_AJUSTAVEIS, deve_registrar_ajuste
@@ -104,60 +104,6 @@ async def listar(
     return list((await session.scalars(q)).all())
 
 
-async def _criaria_ciclo(
-    session: AsyncSession, projeto_id: int, task_id: int, alvo_id: int
-) -> bool:
-    """Anda a cadeia de bloqueio a partir de alvo_id procurando voltar em task_id."""
-    visitados: set[int] = set()
-    atual: Optional[int] = alvo_id
-    while atual is not None:
-        if atual == task_id:
-            return True
-        if atual in visitados:
-            return False
-        visitados.add(atual)
-        t = await buscar(session, projeto_id, atual)
-        atual = t.bloqueada_por if t else None
-    return False
-
-
-async def definir_bloqueio(
-    session: AsyncSession,
-    projeto_id: int,
-    task_id: int,
-    bloqueada_por: Optional[int],
-) -> tuple[Optional[Task], Optional[str]]:
-    """Retorna (task, erro). Recusa auto-bloqueio, ciclos e cruzar projeto."""
-    task = await buscar(session, projeto_id, task_id)
-    if task is None:
-        return None, f"task {task_id} nao encontrada"
-
-    if bloqueada_por is not None:
-        if bloqueada_por == task_id:
-            return None, "uma task nao pode bloquear a si mesma"
-        if await buscar(session, projeto_id, bloqueada_por) is None:
-            # Separar os dois casos importa: "nao existe" e erro de id, e a
-            # rota responde 404; "existe em outro projeto" e um pedido
-            # coerente que cruza fronteira, e a rota responde 409. A rota
-            # decide pelo texto, entao esta mensagem NAO pode dizer
-            # "nao encontrada".
-            if await existe_em_outro_projeto(session, projeto_id, bloqueada_por):
-                return None, (
-                    f"task bloqueadora {bloqueada_por} e de outro projeto"
-                )
-            return None, f"task bloqueadora {bloqueada_por} nao encontrada"
-        if await _criaria_ciclo(session, projeto_id, task_id, bloqueada_por):
-            return None, (
-                f"bloquear {task_id} por {bloqueada_por} criaria um ciclo de dependencia"
-            )
-
-    task.bloqueada_por = bloqueada_por
-    task.atualizada_em = func.now()
-    await session.commit()
-    await session.refresh(task)
-    return task, None
-
-
 async def definir_status(
     session: AsyncSession, projeto_id: int, task_id: int, status: Status
 ) -> Optional[Task]:
@@ -171,21 +117,16 @@ async def definir_status(
     if status is Status.em_andamento and task.iniciada_em is None:
         task.iniciada_em = func.now()
 
-    # Task concluida nao fica pendurada em bloqueio: o fato deixou de valer.
-    # E quem esperava por ela tambem e liberado, no mesmo commit.
+    # Concluir nao precisa mais mexer em bloqueio nenhum: "bloqueada" e
+    # DERIVADA de ter dependencia nao concluida (ver `dominio/grafo.py`).
+    # Antes era preciso limpar o proprio bloqueio e o de quem esperava, e
+    # esquecer isso em algum caminho deixava task travada por algo que ja
+    # tinha acabado. Agora nao ha estado para desatualizar.
     if status is Status.concluida:
         task.concluida_em = func.now()
-        task.bloqueada_por = None
-        await session.execute(
-            update(Task)
-            .where(
-                Task.bloqueada_por == task_id,
-                Task.projeto_id == projeto_id,
-            )
-            .values(bloqueada_por=None, atualizada_em=func.now())
-        )
     else:
-        # Reabrir (aberta ou em_andamento) desfaz a conclusao.
+        # Reabrir (aberta ou em_andamento) desfaz a conclusao -- e volta a
+        # travar quem dependia dela, sem precisar de nenhuma escrita.
         task.concluida_em = None
 
     await session.commit()
@@ -287,8 +228,8 @@ async def editar(
 
 
 async def remover(session: AsyncSession, projeto_id: int, task_id: int) -> bool:
-    """Remove a task. Quem dependia dela fica com bloqueada_por = NULL
-    (ON DELETE SET NULL), entao ninguem sobra apontando para um id morto."""
+    """Remove a task. As arestas de dependencia somem junto (CASCADE nos
+    dois lados), entao nao sobra aresta apontando para id morto."""
     task = await buscar(session, projeto_id, task_id)
     if task is None:
         return False

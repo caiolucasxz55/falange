@@ -5,11 +5,12 @@ import { useState } from "react";
 import { useSessao } from "@/components/SessaoProvider";
 import { TaskCardEdicao } from "@/components/TaskCardEdicao";
 import {
+  adicionarDependencia,
   apagarTask,
   editarTask,
-  marcarBloqueio,
   mensagemDoErro,
   mudarStatus,
+  removerDependencia,
 } from "@/lib/api";
 import {
   diasDesde,
@@ -73,7 +74,7 @@ export function TaskCard({
   const [idBloqueadora, setIdBloqueadora] = useState("");
   const [verNotas, setVerNotas] = useState(false);
 
-  const bloqueada = task.bloqueada_por !== null;
+  const bloqueada = task.bloqueada;
   const posicao = STATUS.indexOf(task.status);
 
   /** Roda uma acao da API mantendo o erro dentro deste card. */
@@ -105,13 +106,16 @@ export function TaskCard({
         setErro("informe o numero de uma task, ex.: 7");
         return;
       }
-      onAtualizada(await marcarBloqueio(task.id, alvo));
+      onAtualizada(await adicionarDependencia(task.id, alvo));
       setBloqueando(false);
       setIdBloqueadora("");
     });
 
-  const desbloquear = () =>
-    executar(async () => onAtualizada(await marcarBloqueio(task.id, null)));
+  // Uma por vez: com N:N, "desbloquear" sem dizer qual seria ambiguo.
+  const soltarDe = (outra: number) =>
+    executar(async () =>
+      onAtualizada(await removerDependencia(task.id, outra)),
+    );
 
   const apagar = () =>
     executar(async () => {
@@ -149,7 +153,7 @@ export function TaskCard({
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
             {bloqueada && (
               <span className="rounded bg-red-100 px-2 py-0.5 font-medium text-red-700">
-                Bloqueada por #{task.bloqueada_por}
+                Bloqueada
               </span>
             )}
             <span
@@ -184,6 +188,32 @@ export function TaskCard({
             )}
             <span className="text-gray-400">ha {diasDesde(task.criada_em)}d</span>
           </div>
+
+          {task.depende_de.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-gray-500">depende de</span>
+              {task.depende_de.map((outra) => (
+                <span
+                  key={outra}
+                  className="flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-gray-700"
+                >
+                  #{outra}
+                  {podeBloqueio && (
+                    <button
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => soltarDe(outra)}
+                      className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                      aria-label={`Soltar #${task.id} de #${outra}`}
+                      title="soltar"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
 
           {verNotas && notas.length > 0 && (
             <ul className="mt-2 space-y-1 rounded bg-sky-50 p-2">
@@ -227,23 +257,14 @@ export function TaskCard({
                 Editar
               </button>
             )}
-            {!podeBloqueio ? null : bloqueada ? (
-              <button
-                type="button"
-                className={botao}
-                disabled={ocupado}
-                onClick={desbloquear}
-              >
-                Desbloquear
-              </button>
-            ) : (
+            {podeBloqueio && (
               <button
                 type="button"
                 className={botao}
                 disabled={ocupado}
                 onClick={() => setBloqueando((v) => !v)}
               >
-                Bloquear
+                Depende de...
               </button>
             )}
             {podeApagar && (
@@ -258,15 +279,15 @@ export function TaskCard({
             )}
           </div>
 
-          {bloqueando && !bloqueada && (
+          {bloqueando && (
             <div className="mt-2 flex items-center gap-2">
               <input
                 inputMode="numeric"
-                placeholder="bloqueada por #"
+                placeholder="esperar por #"
                 value={idBloqueadora}
                 onChange={(e) => setIdBloqueadora(e.target.value)}
                 className="w-32 rounded border border-gray-300 px-2 py-1 text-xs"
-                aria-label="Id da task bloqueadora"
+                aria-label="Id da task de quem esta depende"
               />
               <button
                 type="button"

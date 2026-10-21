@@ -43,10 +43,9 @@ class Task(Base):
         ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
-    # Auto-referencia: esta task esta travada POR outra task.
-    bloqueada_por: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("task.id", ondelete="SET NULL"), nullable=True
-    )
+    # A dependencia saiu daqui para a tabela `dependencia`: uma task
+    # pode esperar por VARIAS, e isso nao cabe numa coluna. Ver
+    # `models/dependencia.py`.
 
     status: Mapped[Status] = mapped_column(
         Enum(Status, name="status"), default=Status.aberta

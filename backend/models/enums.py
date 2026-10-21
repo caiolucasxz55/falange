@@ -73,8 +73,9 @@ class OrigemPreferencia(str, PyEnum):
 
 
 class Status(str, PyEnum):
-    # Nao existe "bloqueada" aqui de proposito: bloqueio e representado por
-    # bloqueada_por. Duas fontes de verdade para o mesmo fato divergem sempre.
+    # Nao existe "bloqueada" aqui de proposito: bloqueio e DERIVADO de ter
+    # dependencia nao concluida (ver `dominio/grafo.py`). Duas fontes de
+    # verdade para o mesmo fato divergem sempre.
     aberta = "aberta"
     em_andamento = "em_andamento"
     concluida = "concluida"

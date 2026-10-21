@@ -11,6 +11,8 @@ logo abaixo, com o porque ao lado.
 from datetime import datetime
 from typing import Any, Optional
 
+from backend.dominio import grafo
+
 PESOS = {
     # Prioridade declarada pelo time: e a intencao explicita, pesa mais.
     "prioridade_alta": 30,
@@ -57,31 +59,25 @@ def _dias(de: Optional[datetime], ate: datetime) -> float:
     return max(0.0, (ate - de).total_seconds() / 86400)
 
 
-def _dependentes_transitivos(tasks: list[dict]) -> dict[int, list[int]]:
+def _dependentes_transitivos(
+    tasks: list[dict], arestas: list[tuple[int, int]]
+) -> dict[int, list[int]]:
     """Para cada task, quem espera por ela direta ou transitivamente.
 
-    Se A trava B e B trava C, A destrava [B, C]. Tasks concluidas nao contam:
-    quem ja terminou nao esta esperando ninguem.
+    Se A trava B e B trava C, A destrava [B, C]. Tasks concluidas nao
+    contam: quem ja terminou nao esta esperando ninguem.
+
+    A caminhada mora em `dominio/grafo.py`. Aqui so fica o recorte do
+    que interessa a fila: o que ainda nao acabou.
     """
-    diretos: dict[int, list[int]] = {}
-    for task in tasks:
-        travadora = task.get("bloqueada_por")
-        if travadora is not None and task.get("status") != "concluida":
-            diretos.setdefault(travadora, []).append(task["id"])
-
-    def descer(raiz: int) -> list[int]:
-        vistos: list[int] = []
-        fila = list(diretos.get(raiz, []))
-        while fila:
-            atual = fila.pop(0)
-            # Ciclo nao existe (o backend recusa), mas a guarda e barata.
-            if atual in vistos or atual == raiz:
-                continue
-            vistos.append(atual)
-            fila.extend(diretos.get(atual, []))
-        return sorted(vistos)
-
-    return {task["id"]: descer(task["id"]) for task in tasks}
+    concluidas = {t["id"] for t in tasks if t.get("status") == "concluida"}
+    return {
+        task["id"]: sorted(
+            d for d in grafo.alcancaveis(arestas, task["id"], reverso=True)
+            if d not in concluidas
+        )
+        for task in tasks
+    }
 
 
 def _alerta_inversao(tasks: list[dict], dependentes: dict[int, list[int]]) -> list[dict]:
@@ -117,6 +113,7 @@ def ranquear(
     agora: datetime,
     cargas: Optional[dict[str, dict]] = None,
     responsavel: Optional[str] = None,
+    arestas: Optional[list[tuple[int, int]]] = None,
 ) -> dict[str, Any]:
     """Ordena o que da para fazer agora e explica cada escolha.
 
@@ -128,12 +125,18 @@ def ranquear(
     """
     cargas = cargas or {}
     tasks = _normalizar(tasks)
-    dependentes = _dependentes_transitivos(tasks)
+    arestas = list(arestas or [])
+    dependentes = _dependentes_transitivos(tasks, arestas)
 
+    # Bloqueada e derivada do grafo, nao lida de um campo: e a mesma
+    # conta que a API expoe em `TaskOut.bloqueada`, e ter duas fontes
+    # para o mesmo fato e como elas divergem.
+    concluidas = {t["id"] for t in tasks if t.get("status") == "concluida"}
     candidatas = [
         t
         for t in tasks
-        if t.get("status") in _ABERTAS and t.get("bloqueada_por") is None
+        if t.get("status") in _ABERTAS
+        and not grafo.bloqueada(arestas, t["id"], concluidas)
     ]
 
     sugestoes = []

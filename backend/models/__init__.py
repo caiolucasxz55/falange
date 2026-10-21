@@ -8,6 +8,7 @@ esquecesse um modelo faria o autogenerate propor dropar a tabela.
 from backend.models.aprendizado import Autonomia, Decisao, Preferencia
 from backend.models.base import Base
 from backend.models.configuracao import Configuracao
+from backend.models.dependencia import Dependencia
 from backend.models.enums import (
     ABERTAS,
     Bloco,
@@ -32,6 +33,7 @@ __all__ = [
     "Bloco",
     "Configuracao",
     "Decisao",
+    "Dependencia",
     "Estimativa",
     "NivelAutonomia",
     "Nota",

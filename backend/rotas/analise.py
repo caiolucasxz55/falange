@@ -16,6 +16,7 @@ from backend.dominio.calibracao import calibrar
 from backend.dominio.priorizacao import ranquear
 from backend.models import Bloco, Status
 from backend.models import Projeto
+from backend.repositorio import dependencias as repo_deps
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import TaskOut
 from backend.schemas.texto import NomeOpcional
@@ -61,7 +62,10 @@ async def priorizacao(
             "sobrecarregado": abertas > settings.limite_sobrecarga,
         }
 
-    saida = ranquear(tasks, datetime.now(timezone.utc), cargas, responsavel)
+    arestas = await repo_deps.listar_arestas(session, projeto.id)
+    saida = ranquear(
+        tasks, datetime.now(timezone.utc), cargas, responsavel, arestas
+    )
 
     if bloco is not None:
         saida["sugestoes"] = [s for s in saida["sugestoes"] if s["bloco"] == bloco.value]

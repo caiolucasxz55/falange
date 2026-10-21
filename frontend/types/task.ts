@@ -26,8 +26,12 @@ export interface Task {
   responsavel_id: number | null;
   /** Quem criou. null nas tasks de antes da V2. */
   autor_id: number | null;
-  /** Id da task que trava esta. null = nao esta bloqueada. */
-  bloqueada_por: number | null;
+  /** De quem esta task depende. Pode ser mais de uma. */
+  depende_de: number[];
+  /** Quem depende desta task. */
+  travando: number[];
+  /** Derivada: tem alguma dependencia ainda nao concluida. */
+  bloqueada: boolean;
   status: Status;
   prioridade: Prioridade;
   /** Datas ISO 8601 com timezone, como o backend devolve. */

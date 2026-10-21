@@ -139,6 +139,44 @@ projeto. A IA ter ganhado autonomia num contexto nao diz nada sobre outro.
 - Nao existe remocao de projeto: apagar levaria junto tudo o que pertence a
   ele.
 
+## Dependencias entre tasks
+
+Uma task pode esperar por **varias** outras, e `bloqueada` nao e um campo
+guardado: e uma pergunta respondida na hora -- *esta task tem alguma
+dependencia que ainda nao foi concluida?*
+
+Antes era um ponteiro so (`task.bloqueada_por`), e o ponteiro mentia em dois
+lugares. Primeiro cabia uma dependencia: a segunda sobrescrevia a primeira em
+silencio. Depois concluir uma task tinha de **apagar** o bloqueio de quem
+esperava por ela, e reabrir nao desfazia -- o estado derivado ficava para
+tras do fato.
+
+Agora as arestas vivem na tabela `dependencia` (`task_id` espera por
+`depende_de_id`), e `mudar_status` nao toca em nenhuma: concluir ja libera
+quem esperava, e reabrir volta a travar, sem nada para sincronizar.
+
+Cada task sai da API com tres campos derivados:
+
+| Campo | O que e |
+|---|---|
+| `depende_de` | de quem ela espera |
+| `travando` | quem espera por ela |
+| `bloqueada` | tem dependencia nao concluida |
+
+Com grafo vem ciclo. `POST /tasks/{id}/dependencias` recusa auto-dependencia
+e **qualquer** ciclo, inclusive o longo de varios passos (A espera B, B
+espera C, e C tenta esperar A) -- a conta esta em `dominio/grafo.py`, modulo
+puro, que tambem responde quem a conclusao de uma task destrava e qual a
+origem de uma cadeia.
+
+A tela conta `travando` a partir do que o **backend** devolve, nao do que ela
+carregou: contar no navegador veria so a pagina atual, e o filtro de bloco ou
+responsavel esconderia dependentes.
+
+Remover e sempre de uma aresta especifica
+(`DELETE /tasks/{id}/dependencias/{outra}`). Com N:N, "desbloquear" sem dizer
+qual seria ambiguo.
+
 ## Ambiente de teste
 
 Um segundo backend, com banco proprio, para verificacao ponta a ponta nao
@@ -185,8 +223,9 @@ banco nem por engano.
 | `listar_tasks` | nao |
 | `editar_task` | sim (alteracao parcial) |
 | `apagar_task` | sim |
-| `marcar_bloqueio` | sim (recusa ciclo e auto-bloqueio) |
-| `mudar_status` | sim (concluir limpa o bloqueio) |
+| `adicionar_dependencia` | sim (recusa ciclo, inclusive longo, e auto-dependencia) |
+| `remover_dependencia` | sim (solta de UMA; as outras ficam) |
+| `mudar_status` | sim (nao mexe em dependencia: `bloqueada` e derivada) |
 | `contar_tasks_por_bloco` | nao |
 | `verificar_sobrecarga` | nao |
 | `gerar_tasks_a_partir_de_arquivo` | **nao** - aceita arquivo ou pasta; so sugere, para voce revisar |

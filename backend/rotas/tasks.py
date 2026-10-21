@@ -12,10 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.db import get_session
+from backend.dominio import grafo
 from backend.dominio.papeis import acoes_para_campos
 from backend.models import Bloco, Origem, Prioridade, Status
 from backend.models import Projeto
+from backend.repositorio import dependencias as repo_deps
 from backend.repositorio import tasks as repo
+from backend.rotas.montagem import montar_task, montar_tasks
 from backend.seguranca.dependencias import (
     Chamador,
     obter_chamador,
@@ -23,7 +26,7 @@ from backend.seguranca.dependencias import (
 )
 from backend.schemas.texto import NomeOpcional
 from backend.schemas import (
-    Bloqueio,
+    DependenciaNova,
     Carga,
     MudancaStatus,
     TaskEdicao,
@@ -53,7 +56,10 @@ async def criar_task(
     # Agora da para dizer QUEM, e nao so se foi IA ou humano.
     dados["autor_id"] = chamador.id
     dados["projeto_id"] = projeto.id
-    return await repo.criar(session, dados)
+    task = await repo.criar(session, dados)
+    # Task nova nao tem aresta, mas a saida passa pela mesma montagem:
+    # um caminho so para o contrato nao divergir entre rotas.
+    return montar_task(task, [], set())
 
 
 @rotas.get("/tasks", response_model=list[TaskOut])
@@ -63,12 +69,13 @@ async def listar_tasks(
     # Aparado como na gravacao: filtro com espaco sobrando achava zero.
     responsavel: NomeOpcional = None,
     prioridade: Optional[Prioridade] = None,
+    bloqueada: Optional[bool] = None,
     chamador: Chamador = Depends(obter_chamador),
     projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
     chamador.exigir("ler")
-    return await repo.listar(
+    tasks = await repo.listar(
         session,
         projeto.id,
         bloco=bloco,
@@ -76,6 +83,17 @@ async def listar_tasks(
         responsavel=responsavel,
         prioridade=prioridade,
     )
+    # O grafo do projeto inteiro, uma vez: `travando` e `bloqueada`
+    # dependem de arestas que podem sair de tasks fora do filtro.
+    arestas = await repo_deps.listar_arestas(session, projeto.id)
+    concluidas = await repo_deps.concluidas(session, projeto.id)
+    saida = montar_tasks(tasks, arestas, concluidas)
+
+    # Este filtro e o unico que nao desce para o SQL: `bloqueada` nao e
+    # coluna, e a resposta so existe depois da montagem.
+    if bloqueada is not None:
+        saida = [s for s in saida if s.bloqueada is bloqueada]
+    return saida
 
 
 @rotas.get("/tasks/contagem-por-bloco")
@@ -126,28 +144,85 @@ async def buscar_task(
     task = await repo.buscar(session, projeto.id, task_id)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
-    return task
+    return montar_task(
+        task,
+        await repo_deps.listar_arestas(session, projeto.id),
+        await repo_deps.concluidas(session, projeto.id),
+    )
 
 
-@rotas.patch("/tasks/{task_id}/bloqueio", response_model=TaskOut)
-async def marcar_bloqueio(
+@rotas.post(
+    "/tasks/{task_id}/dependencias", response_model=TaskOut, status_code=201
+)
+async def adicionar_dependencia(
     task_id: int,
-    body: Bloqueio,
+    body: DependenciaNova,
     chamador: Chamador = Depends(obter_chamador),
     projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
 ):
+    """Faz esta task esperar por outra.
+
+    Recusa auto-dependencia, ciclo e cruzar projeto. A deteccao de ciclo
+    roda sobre o grafo inteiro: com N:N, a volta pode fechar por um caminho
+    de varios passos.
+    """
     chamador.exigir("marcar_bloqueio")
-    task, erro = await repo.definir_bloqueio(
-        session, projeto.id, task_id, body.bloqueada_por
+
+    task = await repo.buscar(session, projeto.id, task_id)
+    if task is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+
+    alvo = body.depende_de
+    if alvo == task_id:
+        raise HTTPException(409, "uma task nao pode depender de si mesma")
+
+    if await repo.buscar(session, projeto.id, alvo) is None:
+        if await repo.existe_em_outro_projeto(session, projeto.id, alvo):
+            raise HTTPException(409, f"task {alvo} e de outro projeto")
+        raise HTTPException(404, f"task {alvo} nao encontrada")
+
+    arestas = await repo_deps.listar_arestas(session, projeto.id)
+    if grafo.criaria_ciclo(arestas, task_id, alvo):
+        raise HTTPException(
+            409,
+            f"fazer {task_id} depender de {alvo} criaria um ciclo de dependencia",
+        )
+
+    await repo_deps.adicionar(session, task_id, alvo)
+    return montar_task(
+        task,
+        await repo_deps.listar_arestas(session, projeto.id),
+        await repo_deps.concluidas(session, projeto.id),
     )
-    if erro:
-        # O status sai do TEXTO do erro: "nao encontrada" e 404, o resto
-        # (auto-bloqueio, ciclo, outro projeto) e 409. Acoplamento frouxo e
-        # de proposito -- o repositorio nao conhece HTTP --, mas e frouxo
-        # mesmo: mudar a frase no repositorio muda o status aqui.
-        raise HTTPException(404 if "nao encontrada" in erro else 409, erro)
-    return task
+
+
+@rotas.delete(
+    "/tasks/{task_id}/dependencias/{depende_de_id}", response_model=TaskOut
+)
+async def remover_dependencia(
+    task_id: int,
+    depende_de_id: int,
+    chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
+    session: AsyncSession = Depends(get_session),
+):
+    """Solta esta task da outra."""
+    chamador.exigir("marcar_bloqueio")
+
+    task = await repo.buscar(session, projeto.id, task_id)
+    if task is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+
+    if not await repo_deps.remover(session, task_id, depende_de_id):
+        raise HTTPException(
+            404, f"task {task_id} nao depende de {depende_de_id}"
+        )
+    return montar_task(
+        task,
+        await repo_deps.listar_arestas(session, projeto.id),
+        await repo_deps.concluidas(session, projeto.id),
+    )
 
 
 @rotas.patch("/tasks/{task_id}/status", response_model=TaskOut)
@@ -162,7 +237,11 @@ async def mudar_status(
     task = await repo.definir_status(session, projeto.id, task_id, body.status)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
-    return task
+    return montar_task(
+        task,
+        await repo_deps.listar_arestas(session, projeto.id),
+        await repo_deps.concluidas(session, projeto.id),
+    )
 
 
 @rotas.patch("/tasks/{task_id}", response_model=TaskOut)
@@ -197,7 +276,11 @@ async def editar_task(
     )
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
-    return task
+    return montar_task(
+        task,
+        await repo_deps.listar_arestas(session, projeto.id),
+        await repo_deps.concluidas(session, projeto.id),
+    )
 
 
 # response_class=Response: um 204 nao pode ter corpo, e sem isso o FastAPI

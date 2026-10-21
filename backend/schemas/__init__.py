@@ -27,7 +27,7 @@ from backend.schemas.usuario import (
     UsuarioOut,
 )
 from backend.schemas.task import (
-    Bloqueio,
+    DependenciaNova,
     Carga,
     MudancaStatus,
     TaskEdicao,
@@ -39,7 +39,7 @@ __all__ = [
     "MAX_DESCRICAO",
     "MAX_JSON_DECISAO",
     "AutonomiaEdicao",
-    "Bloqueio",
+    "DependenciaNova",
     "Carga",
     "ConfiguracaoEdicao",
     "ConfiguracaoOut",

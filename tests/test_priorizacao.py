@@ -18,7 +18,6 @@ def task(id, **campos):
         "bloco": "backend",
         "prioridade": "media",
         "responsavel": None,
-        "bloqueada_por": None,
         "status": "aberta",
         "criada_em": AGORA,
         "iniciada_em": None,
@@ -26,6 +25,11 @@ def task(id, **campos):
     }
     base.update(campos)
     return base
+
+
+def arestas(*pares):
+    """Acucar: arestas(2, 1) le-se "a 2 depende da 1"."""
+    return list(pares)
 
 
 def por_id(resultado):
@@ -38,9 +42,9 @@ def tipos(resultado):
 
 def test_destravamento_conta_a_cadeia_transitiva():
     # 1 trava 2, 2 trava 3: a 1 destrava duas tasks, nao uma.
-    tasks = [task(1), task(2, bloqueada_por=1), task(3, bloqueada_por=2)]
+    tasks = [task(1), task(2), task(3)]
 
-    saida = ranquear(tasks, AGORA)
+    saida = ranquear(tasks, AGORA, arestas=arestas((2, 1), (3, 2)))
     primeira = por_id(saida)[1]
 
     assert primeira["destrava"] == [2, 3]
@@ -51,17 +55,18 @@ def test_destravamento_conta_a_cadeia_transitiva():
 def test_tetos_de_destravamento_e_idade_sao_respeitados():
     # 6 dependentes diretos passariam de 60, mas o teto e 40.
     tasks = [task(1, prioridade="baixa", criada_em=AGORA - timedelta(days=90))]
-    tasks += [task(i, bloqueada_por=1) for i in range(2, 8)]
+    tasks += [task(i) for i in range(2, 8)]
+    ligacoes = [(i, 1) for i in range(2, 8)]
 
-    primeira = por_id(ranquear(tasks, AGORA))[1]
+    primeira = por_id(ranquear(tasks, AGORA, arestas=ligacoes))[1]
 
     assert primeira["score"] == PESOS["destrava_teto"] + PESOS["idade_teto"]
 
 
 def test_task_bloqueada_fica_fora_das_sugestoes():
-    tasks = [task(1), task(2, bloqueada_por=1), task(3, status="concluida")]
+    tasks = [task(1), task(2), task(3, status="concluida")]
 
-    sugeridas = por_id(ranquear(tasks, AGORA))
+    sugeridas = por_id(ranquear(tasks, AGORA, arestas=arestas((2, 1))))
 
     assert set(sugeridas) == {1}
 
@@ -99,11 +104,12 @@ def test_alerta_de_inversao_aponta_a_alta_travada():
     # A 1 e baixa mas trava a 3 (alta), por tabela, via 2.
     tasks = [
         task(1, prioridade="baixa"),
-        task(2, bloqueada_por=1),
-        task(3, prioridade="alta", bloqueada_por=2),
+        task(2),
+        task(3, prioridade="alta"),
     ]
+    saida = ranquear(tasks, AGORA, arestas=arestas((2, 1), (3, 2)))
 
-    inversoes = [a for a in ranquear(tasks, AGORA)["alertas"] if a["tipo"] == "inversao"]
+    inversoes = [a for a in saida["alertas"] if a["tipo"] == "inversao"]
 
     # As duas travam a alta: a 1 por tabela e a 2 diretamente.
     assert {a["task_id"] for a in inversoes} == {1, 2}
@@ -113,7 +119,7 @@ def test_alerta_de_inversao_aponta_a_alta_travada():
 
 
 def test_inversao_ignora_quem_nao_trava_alta():
-    tasks = [task(1, prioridade="baixa"), task(2, prioridade="media", bloqueada_por=1)]
+    tasks = [task(1, prioridade="baixa"), task(2, prioridade="media")]
 
     assert "inversao" not in tipos(ranquear(tasks, AGORA))
 
@@ -171,3 +177,32 @@ def test_enum_do_orm_nao_perde_o_peso_da_prioridade():
     assert saida["score"] == PESOS["prioridade_media"]
     assert "prioridade media" in saida["motivos"]
     assert saida["prioridade"] == "media"
+
+
+def test_duas_dependencias_so_destravam_juntas():
+    """Caso que o modelo antigo nao sabia expressar.
+
+    Com um ponteiro so, a 3 nao podia esperar por 1 E 2 ao mesmo tempo.
+    Agora pode -- e nenhuma das duas sozinha a libera, entao nenhuma ganha
+    peso de destravamento.
+    """
+    tasks = [task(1), task(2), task(3)]
+    ligacoes = arestas((3, 1), (3, 2))
+
+    saida = ranquear(tasks, AGORA, arestas=ligacoes)
+    sugeridas = por_id(saida)
+
+    # A 3 esta bloqueada pelas duas e fica fora.
+    assert set(sugeridas) == {1, 2}
+    # Nenhuma das duas destrava a 3 sozinha, mas ambas a alcancam.
+    assert sugeridas[1]["destrava"] == [3]
+    assert sugeridas[2]["destrava"] == [3]
+
+
+def test_concluir_uma_das_duas_nao_basta():
+    tasks = [task(1, status="concluida"), task(2), task(3)]
+
+    sugeridas = por_id(ranquear(tasks, AGORA, arestas=arestas((3, 1), (3, 2))))
+
+    # A 3 continua travada pela 2.
+    assert set(sugeridas) == {2}

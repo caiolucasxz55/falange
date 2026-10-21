@@ -97,11 +97,24 @@ export async function apagarTask(taskId: number): Promise<void> {
   await pedir<null>(`/tasks/${taskId}`, { method: "DELETE" });
 }
 
-/** PATCH /tasks/{taskId}/bloqueio. bloqueadaPor = null desbloqueia. */
-export function marcarBloqueio(taskId: number, bloqueadaPor: number | null): Promise<Task> {
-  return pedir<Task>(`/tasks/${taskId}/bloqueio`, {
-    method: "PATCH",
-    body: JSON.stringify({ bloqueada_por: bloqueadaPor }),
+/** POST /tasks/{taskId}/dependencias. Uma task pode esperar por varias. */
+export function adicionarDependencia(
+  taskId: number,
+  dependeDe: number,
+): Promise<Task> {
+  return pedir<Task>(`/tasks/${taskId}/dependencias`, {
+    method: "POST",
+    body: JSON.stringify({ depende_de: dependeDe }),
+  });
+}
+
+/** DELETE /tasks/{taskId}/dependencias/{outra}. Solta de UMA dependencia. */
+export function removerDependencia(
+  taskId: number,
+  dependeDe: number,
+): Promise<Task> {
+  return pedir<Task>(`/tasks/${taskId}/dependencias/${dependeDe}`, {
+    method: "DELETE",
   });
 }
 
