@@ -311,6 +311,95 @@ variavel de ambiente -- para nao haver como ficar errado em silencio.
 um `fullmatch` antes. E a unica parte do projeto que executa um binario
 externo, entao vale a defesa em profundidade.
 
+## Conectar o MCP sem ter o repositorio
+
+Antes disto, ligar a IA no Falange exigia o repositorio clonado -- e quem
+entrava pelo SSE usava as credenciais DO SERVIDOR, nao as proprias. Duas
+pessoas no mesmo SSE eram a mesma conta para o backend: `autor_id`, papel e
+projeto saiam todos errados. A V2 construiu identidade por pessoa, e o MCP
+a descartava na porta.
+
+O token de conexao fecha isso. A pessoa gera o dela, cola num `.mcp.json` e
+conecta **como ela mesma**.
+
+### O formato, e por que ele tem um prefixo publico
+
+    flg_<prefixo>_<segredo>
+
+| Pedaco | Onde fica | Para que |
+|---|---|---|
+| `flg_` | no token | scanner de segredo vazado reconhecer |
+| prefixo | banco, em CLARO, com indice unico | achar a linha em O(1) |
+| segredo | so o sha256 no banco | a credencial de fato |
+
+O prefixo em claro e o que torna a validacao viavel: sem ele, conferir um
+token exigiria hashear contra TODAS as linhas da tabela. Ele tambem e o que
+a tela mostra na lista -- da para reconhecer qual token e qual sem revelar
+nenhum.
+
+**sha256 e nao argon2**, pela mesma razao que o refresh da sessao usa
+sha256: o segredo tem 256 bits de entropia, entao nao ha dicionario para
+percorrer nem senha fraca para proteger. argon2 existe para encarecer
+ataque a segredo ADIVINHAVEL; aqui ele so custaria ~100ms por request, e
+este token e conferido em TODA chamada do MCP.
+
+### Quatro credenciais, um header
+
+`Authorization: Bearer` carrega agora quatro coisas, e cada uma e resolvida
+em `seguranca/dependencias.py`:
+
+1. JWT de quem fez login (a tela);
+2. token de conexao `flg_...` (o MCP de quem nao tem o repo);
+3. token compartilhado + `X-Falange-Fonte: mcp` (a conta `falange-ia`);
+4. token compartilhado sem header (a tela antes de haver login).
+
+O middleware aceita o token de conexao **so pelo formato** -- ele nao tem
+sessao de banco para conferir o hash. Isso e seguro porque toda rota que
+faz algo depende de `obter_chamador`, que resolve o token de verdade e
+levanta 401. As unicas rotas sem `obter_chamador` sao `/health`, o login e
+o renovar, e as duas ultimas autenticam por conta propria.
+
+Isso nao e confianca no comentario: `tests/test_token_mcp.py` varre o fonte
+de `backend/rotas/` e falha se o conjunto de rotas sem `obter_chamador`
+mudar. Rota nova sem ele seria alcancavel com um token inventado.
+
+### O que o token NAO faz
+
+- **Nao congela permissao.** O papel continua lido do banco a cada
+  request, como no JWT: rebaixar alguem vale no request seguinte.
+- **Nao amplia nada.** Ele vale o que o papel do dono vale. Um `leitor`
+  com token conecta e so le.
+- **Nao sobrevive ao corte de acesso.** Desativar, rebaixar ou cortar as
+  sessoes de alguem agora revoga os tokens de MCP dela tambem. Antes o
+  corte pegava so a sessao da tela -- e um notebook perdido tem o
+  `.mcp.json` dentro dele, que e exatamente o caso que esse corte existe
+  para resolver.
+- **Nao e da conta de servico.** `falange-ia` ja entra pelo token
+  compartilhado; um token de conexao apontando para ela seria credencial
+  sem dono humano para revogar. A rota recusa com 403.
+
+### O projeto vem do token
+
+`obter_projeto` passa a olhar, nesta ordem: o token de conexao, o header
+`X-Falange-Projeto`, e o `padrao`.
+
+O token vem primeiro porque quem conecta de fora nao tem um `.mcp.json`
+nosso para definir `FALANGE_PROJETO` -- cair no `padrao` escreveria no
+projeto errado em silencio, que e o erro que os projetos resolveram com 404
+em slug desconhecido. O projeto foi escolhido quando o token nasceu.
+
+### O segredo sai uma vez
+
+`POST /eu/tokens-mcp` e o unico lugar do sistema que devolve o segredo em
+claro, e so na criacao. `TokenMCPCriado` e uma classe SEPARADA de
+`TokenMCPOut` de proposito: assim nao ha como o campo escapar numa
+listagem por alguem reaproveitar o schema -- ele simplesmente nao existe
+no outro.
+
+Perdido, o caminho e revogar e gerar outro. Revogar preenche
+`revogado_em` e nao apaga a linha, como na sessao: saber que o token
+existiu e foi cortado vale mais que o espaco.
+
 ### O que a IA nao pode desfazer
 
 Nao existe `apagar_evidencia_propria`. A IA registra a propria prova; deixar

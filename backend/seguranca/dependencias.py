@@ -1,15 +1,21 @@
 """Quem esta chamando, e pode fazer o que.
 
-Tres portas chegam aqui, e a ordem importa:
+Quatro portas chegam aqui, e a ordem importa:
 
 1. **access token (JWT)** no `Authorization: Bearer` -- uma pessoa logada.
    A assinatura prova que ninguem forjou o token, mas o PAPEL vem do banco,
    nao do token: rebaixar ou desativar alguem tem efeito no request
    seguinte, nao no vencimento do token.
-2. **token compartilhado + `X-Falange-Fonte: mcp`** -- a conta de servico
+2. **token de conexao do MCP** (`flg_...`), tambem no `Bearer` -- uma
+   pessoa conectando a IA dela de qualquer maquina, sem ter o repositorio.
+   Identifica a MESMA conta do login, com o papel lido do banco igual. E o
+   que faz a identidade por pessoa sobreviver a porta do MCP: antes dele,
+   quem entrava pelo SSE usava as credenciais do servidor, e duas pessoas
+   eram a mesma conta.
+3. **token compartilhado + `X-Falange-Fonte: mcp`** -- a conta de servico
    `falange-ia`. E o que torna as travas da IA regra de papel em vez de
    checagem de header.
-3. **token compartilhado sem o header** -- a tela antes de ter login. Com
+4. **token compartilhado sem o header** -- a tela antes de ter login. Com
    `EXIGIR_LOGIN=false` isto e tratado como admin sem login, que e o
    comportamento de antes da V2; com true, e 401.
 
@@ -27,7 +33,9 @@ from backend.db import get_session
 from backend.dominio import papeis
 from backend.models import Papel, Projeto, Usuario
 from backend.repositorio import projetos as repo_projetos
+from backend.repositorio import tokens_mcp as repo_tokens
 from backend.repositorio import usuarios as repo
+from backend.seguranca import token_mcp as mod_token_mcp
 from backend.seguranca.sessao import ler_access
 from backend.seguranca.token import FONTE_MCP, PREFIXO
 
@@ -120,18 +128,102 @@ async def _do_access(
     return Chamador(usuario, usuario.papel.value)
 
 
+async def _resolver_token_mcp(request: Request, session: AsyncSession):
+    """A linha do token de conexao desta requisicao, resolvida UMA vez.
+
+    Memoizada em `request.state` porque DUAS dependencias precisam dela --
+    `obter_chamador` (quem e a pessoa) e `obter_projeto` (onde ela
+    escreve) -- e o FastAPI nao garante a ordem entre elas. Sem isto, cada
+    request validaria o token duas vezes e gravaria `ultimo_uso_em` duas
+    vezes.
+
+    Devolve None quando o header nao tem a cara de um token nosso: ai o
+    porteiro segue tentando as outras credenciais. Mas quando TEM a cara e
+    nao presta, levanta 401 -- um token no nosso formato que nao confere e
+    uma tentativa, nao um cliente de outro tipo.
+    """
+    if hasattr(request.state, "token_mcp_resolvido"):
+        return request.state.token_mcp_resolvido
+
+    request.state.token_mcp_resolvido = None
+
+    cabecalho = request.headers.get("authorization") or ""
+    if not cabecalho.startswith(PREFIXO):
+        return None
+    separado = mod_token_mcp.partes(cabecalho[len(PREFIXO) :])
+    if separado is None:
+        return None
+    prefixo, segredo = separado
+
+    # Um SELECT por indice unico, e so depois o hash. E para isto que o
+    # prefixo existe em claro: sem ele, conferir um token exigiria hashear
+    # contra todas as linhas da tabela.
+    linha = await repo_tokens.buscar_por_prefixo(session, prefixo)
+    if not repo_tokens.token_vivo(linha) or not mod_token_mcp.confere(
+        segredo, linha.hash_segredo if linha else None
+    ):
+        # Mesma resposta para prefixo inexistente, segredo errado, token
+        # revogado e token vencido: distinguir entrega informacao de graca.
+        raise HTTPException(401, "token de conexao invalido, revogado ou vencido")
+
+    request.state.token_mcp_resolvido = linha
+    await repo_tokens.marcar_uso(session, linha.id)
+    return linha
+
+
+async def _do_token_mcp(
+    request: Request, session: AsyncSession
+) -> Optional[Chamador]:
+    """O chamador por tras de um token de conexao, ou None."""
+    linha = await _resolver_token_mcp(request, session)
+    if linha is None:
+        return None
+
+    usuario = await repo.buscar(session, linha.usuario_id)
+    if usuario is None or not usuario.ativo:
+        raise HTTPException(401, "usuario inativo ou removido")
+
+    # Papel do BANCO, como no JWT: o token identifica, nao congela
+    # permissao. Rebaixar alguem vale no request seguinte.
+    return Chamador(usuario, usuario.papel.value)
+
+
+async def _projeto_do_token(request: Request, session: AsyncSession):
+    """O projeto amarrado ao token desta requisicao, ou None."""
+    linha = await _resolver_token_mcp(request, session)
+    if linha is None:
+        return None
+
+    projeto = await repo_projetos.buscar(session, linha.projeto_id)
+    if projeto is None:
+        # O projeto do token foi apagado. A FK e CASCADE, entao isto nao
+        # deveria acontecer -- se acontecer, recusar e melhor que cair no
+        # `padrao` e escrever no lugar errado.
+        raise HTTPException(
+            409, "o projeto deste token de conexao nao existe mais"
+        )
+    return projeto
+
+
 async def obter_projeto(
+    request: Request,
     session: AsyncSession = Depends(get_session),
     x_falange_projeto: Optional[str] = Header(default=None),
 ) -> Projeto:
     """Em qual projeto esta esta chamada.
 
-    Vem do header `X-Falange-Projeto`. Sem header, o projeto `padrao` -- e o
-    que mantem funcionando todo cliente que ainda nao sabe de projeto.
+    Ordem: o token de conexao manda, depois o header, depois o `padrao`.
 
-    Slug desconhecido e 404, e nao "cai no padrao": escrever no projeto
-    errado por causa de um typo seria pior que receber um erro.
+    O token vem primeiro porque quem conecta de fora nao tem um
+    `.mcp.json` nosso para definir `FALANGE_PROJETO` -- deixar cair no
+    `padrao` escreveria no projeto errado em silencio, que e o erro que a
+    Fase D resolveu com 404 em slug desconhecido. O projeto foi escolhido
+    quando o token nasceu; e ali que a decisao foi tomada.
     """
+    do_token = await _projeto_do_token(request, session)
+    if do_token is not None:
+        return do_token
+
     if x_falange_projeto:
         projeto = await repo_projetos.buscar_por_slug(session, x_falange_projeto)
         if projeto is None:
@@ -160,7 +252,15 @@ async def obter_chamador(
         if chamador is not None:
             return chamador
 
-    # Nao era JWT: e o token compartilhado, que o middleware ja validou.
+        # JWT vem antes porque e o caso mais comum (toda a tela), e porque
+        # `partes()` do token de conexao e barato: so olha o formato, sem
+        # ir ao banco quando nao casa.
+        chamador = await _do_token_mcp(request, session)
+        if chamador is not None:
+            return chamador
+
+    # Nao era JWT nem token de conexao: e o token compartilhado, que o
+    # middleware ja validou.
     if x_falange_fonte == FONTE_MCP:
         conta = await repo.buscar_conta_ia(session)
         if conta is None or not conta.ativo:

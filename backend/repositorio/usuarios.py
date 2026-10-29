@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import Papel, Sessao, Usuario
+from backend.models import Papel, Sessao, TokenMCP, Usuario
 
 # Email da conta de servico que o MCP usa. Tem de bater com a migration 0007.
 EMAIL_IA = "falange-ia@falange.local"
@@ -56,7 +56,8 @@ async def editar(
     session: AsyncSession, usuario_id: int, campos: dict
 ) -> Optional[Usuario]:
     """Altera apenas os campos presentes. Rebaixar ou desativar corta as
-    sessoes vivas no mesmo commit: o efeito e imediato, nao no vencimento."""
+    credenciais vivas (sessao e token de MCP) no mesmo commit: o efeito e
+    imediato, nao no vencimento."""
     usuario = await session.get(Usuario, usuario_id)
     if usuario is None:
         return None
@@ -73,7 +74,7 @@ async def editar(
     usuario.atualizado_em = func.now()
 
     if perdeu_poder:
-        await _revogar_sessoes(session, usuario_id)
+        await _revogar_credenciais(session, usuario_id)
 
     await session.commit()
     await session.refresh(usuario)
@@ -186,6 +187,29 @@ async def _revogar_sessoes(session: AsyncSession, usuario_id: int) -> None:
     )
 
 
-async def revogar_sessoes_do_usuario(session: AsyncSession, usuario_id: int) -> None:
+async def _revogar_tokens_mcp(session: AsyncSession, usuario_id: int) -> None:
+    """Corta os tokens de MCP vivos do usuario. Nao commita."""
+    await session.execute(
+        update(TokenMCP)
+        .where(TokenMCP.usuario_id == usuario_id, TokenMCP.revogado_em.is_(None))
+        .values(revogado_em=func.now())
+    )
+
+
+async def _revogar_credenciais(session: AsyncSession, usuario_id: int) -> None:
+    """Corta TUDO com que a pessoa alcanca a API. Nao commita.
+
+    Sessao da tela e token de MCP, juntos, porque sao a mesma pergunta:
+    "esta pessoa ainda entra?". Cortar so a sessao deixava o token do MCP
+    vivo -- e um notebook perdido tem o `.mcp.json` dentro dele, que e
+    justamente o caso que este corte existe para resolver.
+    """
     await _revogar_sessoes(session, usuario_id)
+    await _revogar_tokens_mcp(session, usuario_id)
+
+
+async def revogar_sessoes_do_usuario(session: AsyncSession, usuario_id: int) -> None:
+    """Corta sessoes E tokens de MCP. O nome ficou da epoca em que so havia
+    sessao; mudar ele mexeria na rota publica `/usuarios/{id}/sessoes`."""
+    await _revogar_credenciais(session, usuario_id)
     await session.commit()

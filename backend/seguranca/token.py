@@ -32,23 +32,36 @@ def token_valido(cabecalho: Optional[str], esperado: str) -> bool:
 
 
 def entrada_permitida(
-    cabecalho: Optional[str], esperado: str, access_confere: bool
+    cabecalho: Optional[str],
+    esperado: str,
+    access_confere: bool,
+    parece_token_mcp: bool = False,
 ) -> bool:
-    """A porta abre com o token compartilhado OU com um access token valido.
+    """A porta abre com o token compartilhado, um access token valido, ou um
+    token de conexao do MCP com o nosso formato.
 
-    Duas credenciais chegam pelo mesmo header `Authorization: Bearer`: o
-    segredo compartilhado (MCP e proxy da tela) e o JWT de quem fez login.
-    Conferir so o primeiro barraria todo usuario logado com 401 antes de a
-    rota existir -- foi exatamente o que aconteceu na primeira versao disto.
+    TRES credenciais chegam pelo mesmo header `Authorization: Bearer`: o
+    segredo compartilhado (MCP e proxy da tela), o JWT de quem fez login, e
+    o token de conexao (`flg_...`) de quem ligou a IA pela tela. Conferir so
+    o primeiro barraria os outros dois com 401 antes de a rota existir --
+    foi exatamente o que aconteceu na primeira versao disto, com o JWT.
+
+    `parece_token_mcp` e so o FORMATO, e nao podia ser mais que isso: o
+    middleware nao tem sessao de banco para conferir o hash. Isso e seguro
+    porque toda rota que faz algo depende de `obter_chamador`, que resolve o
+    token de verdade e levanta 401 se ele nao presta. As unicas rotas sem
+    `obter_chamador` sao `/health`, o login e o renovar -- e as duas ultimas
+    autenticam por conta propria, com senha ou refresh. Ou seja: passar
+    daqui com um token inventado nao alcanca nada.
 
     Aqui so se decide se ENTRA. Quem e a pessoa e o que ela pode fazer e
-    assunto de `seguranca/dependencias.py`, que le a sessao e o papel no
+    assunto de `seguranca/dependencias.py`, que le a credencial e o papel no
     banco.
     """
     if not esperado:
         # Sem token configurado, a porta esta aberta de proposito (dev local).
         return True
-    return token_valido(cabecalho, esperado) or access_confere
+    return token_valido(cabecalho, esperado) or access_confere or parece_token_mcp
 
 
 def exige_token(caminho: str, metodo: str, esperado: str) -> bool:

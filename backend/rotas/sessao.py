@@ -13,7 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import settings
 from backend.db import get_session
 from backend.dominio.papeis import acoes_de
+from backend.models import Projeto
+from backend.repositorio import tokens_mcp as repo_tokens
 from backend.repositorio import usuarios as repo
+from backend.schemas.token_mcp import (
+    TokenMCPCriado,
+    TokenMCPNovo,
+    TokenMCPOut,
+)
 from backend.schemas.usuario import (
     Eu,
     Login,
@@ -24,7 +31,12 @@ from backend.schemas.usuario import (
 )
 from backend.seguranca import senha as mod_senha
 from backend.seguranca import sessao as mod_sessao
-from backend.seguranca.dependencias import Chamador, obter_chamador
+from backend.seguranca import token_mcp as mod_token_mcp
+from backend.seguranca.dependencias import (
+    Chamador,
+    obter_chamador,
+    obter_projeto,
+)
 
 rotas = APIRouter(tags=["sessao"])
 
@@ -182,3 +194,90 @@ async def trocar_senha(
         {"senha_hash": mod_senha.gerar_hash(body.senha_nova)},
     )
     await repo.revogar_sessoes_do_usuario(session, chamador.usuario.id)
+
+
+# ---------------------------------------------------------------------------
+# tokens de conexao do MCP
+# ---------------------------------------------------------------------------
+#
+# Ficam em `/eu` porque sao do proprio dono, pela mesma razao de
+# `/eu/senha`. Admin alcanca os de outra pessoa pela permissao
+# `gerir_usuarios`, que ja existe -- gerir token de alguem E gerir a conta
+# dessa pessoa, nao uma permissao nova.
+
+
+@rotas.get("/eu/tokens-mcp", response_model=list[TokenMCPOut])
+async def listar_meus_tokens_mcp(
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
+    """Os meus tokens de conexao. Nunca devolve o segredo."""
+    if chamador.usuario is None:
+        raise HTTPException(401, "faca login para ver os seus tokens")
+    return await repo_tokens.listar_do_usuario(session, chamador.usuario.id)
+
+
+@rotas.post(
+    "/eu/tokens-mcp", response_model=TokenMCPCriado, status_code=201
+)
+async def criar_meu_token_mcp(
+    body: TokenMCPNovo,
+    chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
+    session: AsyncSession = Depends(get_session),
+):
+    """Cria um token e devolve o segredo UMA vez.
+
+    O projeto vem de `obter_projeto` -- ou seja, do `X-Falange-Projeto` que
+    a tela manda. E a escolha do momento da criacao: dali em diante o token
+    escreve NAQUELE projeto, e quem conecta de fora nao precisa (nem
+    consegue) mandar o header.
+
+    A conta de servico nao cria token: ela ja entra pelo token
+    compartilhado, e um token de MCP apontando para a propria IA seria uma
+    credencial sem dono humano para revogar.
+    """
+    if chamador.usuario is None:
+        raise HTTPException(401, "faca login para criar um token")
+    if chamador.e_ia:
+        raise HTTPException(
+            403, "a conta de servico falange-ia nao cria token de conexao"
+        )
+
+    token, prefixo, hash_segredo = mod_token_mcp.gerar()
+    linha = await repo_tokens.criar(
+        session,
+        usuario_id=chamador.usuario.id,
+        projeto_id=projeto.id,
+        nome=body.nome,
+        prefixo=prefixo,
+        hash_segredo=hash_segredo,
+        expira_em=(
+            mod_sessao.expira_em(body.dias) if body.dias is not None else None
+        ),
+    )
+
+    saida = TokenMCPCriado.model_validate(linha, from_attributes=True)
+    # O unico lugar do sistema em que o segredo em claro sai: aqui, uma vez.
+    saida.token = token
+    return saida
+
+
+@rotas.delete("/eu/tokens-mcp/{token_id}", status_code=204)
+async def revogar_meu_token_mcp(
+    token_id: int,
+    chamador: Chamador = Depends(obter_chamador),
+    session: AsyncSession = Depends(get_session),
+):
+    """Revoga um token meu. A IA conectada por ele para no request seguinte.
+
+    404 tambem quando o token e de outra pessoa: para quem pergunta de
+    fora, token alheio nao existe. Dizer "esse nao e seu" confirmaria que
+    o id existe.
+    """
+    if chamador.usuario is None:
+        raise HTTPException(401, "faca login para revogar um token")
+
+    if not await repo_tokens.revogar(session, token_id, chamador.usuario.id):
+        raise HTTPException(404, f"token {token_id} nao encontrado")
+    return Response(status_code=204)

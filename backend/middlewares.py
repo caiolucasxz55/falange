@@ -14,6 +14,7 @@ from backend.config import settings
 from backend.dominio.limite import permitido, segundos_para_liberar
 from backend.seguranca.sessao import ler_access
 from backend.seguranca.token import PREFIXO, entrada_permitida, exige_token
+from backend.seguranca.token_mcp import partes as partes_token_mcp
 
 # Historico por cliente. Em memoria: morre no restart e nao e compartilhado
 # entre replicas. Suficiente para barrar script, nao para abuso distribuido.
@@ -59,11 +60,20 @@ async def exigir_token(request, proxima):
     if exige_token(request.url.path, request.method, settings.api_token):
         cabecalho = request.headers.get("authorization")
         access_confere = False
-        if settings.jwt_segredo and cabecalho and cabecalho.startswith(PREFIXO):
-            access_confere = (
-                ler_access(cabecalho[len(PREFIXO) :], settings.jwt_segredo) is not None
-            )
-        if not entrada_permitida(cabecalho, settings.api_token, access_confere):
+        parece_token_mcp = False
+        if cabecalho and cabecalho.startswith(PREFIXO):
+            credencial = cabecalho[len(PREFIXO) :]
+            if settings.jwt_segredo:
+                access_confere = (
+                    ler_access(credencial, settings.jwt_segredo) is not None
+                )
+            # So o formato. Conferir o hash exigiria sessao de banco, que o
+            # middleware nao tem -- e nao precisa ter: quem resolve o token
+            # de verdade e `obter_chamador`, em toda rota que faz algo.
+            parece_token_mcp = partes_token_mcp(credencial) is not None
+        if not entrada_permitida(
+            cabecalho, settings.api_token, access_confere, parece_token_mcp
+        ):
             return JSONResponse({"detail": "token invalido ou ausente"}, status_code=401)
     return await proxima(request)
 
