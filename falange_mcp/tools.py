@@ -13,6 +13,7 @@ from pathlib import Path
 
 import httpx
 
+from falange_mcp import git, transporte
 from falange_mcp.config import settings
 from falange_mcp.template import (
     BLOCOS,
@@ -24,6 +25,7 @@ from falange_mcp.template import (
     TEMPLATE_CONTRATO,
     TIPOS_ACAO,
     TIPOS_DECISAO,
+    TIPOS_EVIDENCIA,
     normalizar,
     validar_pre_task,
 )
@@ -875,3 +877,137 @@ def validar_task(
         _canonizar(estimativa, ESTIMATIVAS), _canonizar(bloco, BLOCOS)
     )
     return veredito
+
+
+# ---------------------------------------------------------------------------
+# evidencia
+# ---------------------------------------------------------------------------
+
+
+def coletar_evidencias(task_id: int) -> dict:
+    """Os commits do repositorio local que citam #<task_id>. SO LEITURA.
+
+    Procura `#<id>` no titulo e no corpo dos commits e devolve sha, titulo,
+    data, autor e arquivos tocados -- material para conferir o trabalho com
+    `git show` antes de registrar qualquer prova.
+
+    NAO registra nada e NAO escreve no repositorio. Para transformar um
+    destes commits em prova, chame `registrar_evidencia` com o sha.
+
+    So funciona no servidor local (stdio): no SSE o processo roda longe do
+    seu repositorio, e ler o git de la nao diria nada sobre o seu trabalho.
+    """
+    if not transporte.e_local():
+        return {
+            "erro": (
+                "coletar_evidencias so funciona no servidor local (stdio): "
+                "este processo e o SSE e nao alcanca o seu repositorio. "
+                "Rode a coleta na sua maquina, ou registre a evidencia "
+                "direto com registrar_evidencia e o sha"
+            )
+        }
+
+    raiz = settings.repo_root
+    commits, erro = git.commits_da_task(task_id, raiz)
+    if erro:
+        return {"erro": f"{erro} (FALANGE_REPO_ROOT={raiz})"}
+
+    return {
+        "task_id": task_id,
+        "repositorio": str(raiz),
+        "padrao": f"#{task_id}",
+        "commits": commits,
+        # Dito explicitamente para nao se confundir "nao achei commit" com
+        # "o trabalho nao foi feito": pode so nao ter a convencao no titulo.
+        "observacao": (
+            "nenhum commit cita #%d; talvez o titulo nao siga a convencao "
+            "'#<id>'" % task_id
+            if not commits
+            else "confira com git show antes de registrar"
+        ),
+    }
+
+
+def ver_diff_do_commit(sha: str, arquivo: str | None = None) -> dict:
+    """O diff de um commit, para CONFERIR o que ele realmente mudou. SO LEITURA.
+
+    Serve ao passo que o titulo do commit nao resolve: dizer se um criterio
+    de aceite foi cumprido exige ler o que mudou, nao acreditar na mensagem.
+
+    `arquivo` limita a um caminho so, quando o commit e grande.
+    So funciona no servidor local (stdio).
+    """
+    if not transporte.e_local():
+        return {
+            "erro": (
+                "ver_diff_do_commit so funciona no servidor local (stdio): "
+                "este processo nao alcanca o seu repositorio"
+            )
+        }
+
+    diff, erro = git.diff_do_commit(sha, settings.repo_root, arquivo)
+    if erro:
+        return {"erro": erro}
+    return {"sha": sha, "arquivo": arquivo, "diff": diff}
+
+
+def registrar_evidencia(
+    task_id: int,
+    tipo: str,
+    referencia: str = "",
+    resumo: str = "",
+    criterio_ids: list[int] | None = None,
+) -> dict:
+    """Anexa uma prova a task e liga os criterios que ela cumpre.
+
+    tipo: commit | teste | link | manual.
+
+    - `commit`: referencia = sha (7 a 40 chars hex). O backend confere o
+      formato; se o commit existe e o que ele faz, quem confere e quem le.
+    - `teste`: referencia = o teste que cobre o criterio
+      (ex.: tests/test_grafo.py::test_recusa_ciclo_longo).
+    - `link`: referencia = a URL.
+    - `manual`: sem referencia para dar, entao o `resumo` e obrigatorio --
+      e a unica coisa que alguem vai poder ler depois.
+
+    `criterio_ids` sao os ids que ESTA prova cumpre (veja `criterios` na
+    task). Uma prova pode cumprir varios. Lista vazia anexa a prova sem
+    fechar criterio nenhum, o que serve para contexto.
+
+    Isto e o que destrava concluir: a IA so conclui task com prova ligada a
+    TODOS os criterios. Nao registre prova que voce nao conferiu -- a
+    evidencia existe para alguem auditar depois, nao para liberar o status.
+    """
+    tipo = _canonizar(tipo, TIPOS_EVIDENCIA)
+    erro = _checar(tipo, TIPOS_EVIDENCIA, "tipo")
+    if erro:
+        return {"erro": erro}
+
+    return _pedir(
+        "POST",
+        f"/tasks/{task_id}/evidencias",
+        json={
+            "tipo": tipo,
+            "referencia": referencia,
+            "resumo": resumo,
+            "criterio_ids": criterio_ids or [],
+        },
+    )
+
+
+def listar_evidencias(task_id: int) -> list | dict:
+    """As provas ja anexadas a uma task."""
+    return _pedir("GET", f"/tasks/{task_id}/evidencias")
+
+
+def apagar_evidencia(task_id: int, evidencia_id: int) -> dict:
+    """Apaga uma prova. Os criterios dela voltam a "nao verificado".
+
+    Destrutiva: apaga o rastro de uma verificacao. Use quando a prova
+    registrada estiver ERRADA (sha do commit trocado, teste que nao cobre o
+    criterio), nao para destravar a conclusao de outra forma.
+    """
+    saida = _pedir("DELETE", f"/tasks/{task_id}/evidencias/{evidencia_id}")
+    if isinstance(saida, dict) and saida.get("erro"):
+        return saida
+    return {"apagada": evidencia_id, "task_id": task_id}

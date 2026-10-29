@@ -19,6 +19,7 @@ A logica das tools esta em tools.py -- este arquivo so escolhe o transporte.
 import uvicorn
 from starlette.responses import JSONResponse
 
+from falange_mcp import transporte
 from falange_mcp.config import settings
 from falange_mcp.seguranca import token_valido
 from falange_mcp.server import build_server
@@ -55,7 +56,9 @@ if __name__ == "__main__":
         # Barulhento de proposito: esta e a porta que o time alcanca.
         print("ATENCAO: SSE_TOKEN vazio, qualquer um na rede usa as tools")
 
-    aplicacao = build_server("falange-http-sse").sse_app(host=settings.mcp_sse_host)
+    aplicacao = build_server(
+        "falange-http-sse", transporte.REMOTO
+    ).sse_app(host=settings.mcp_sse_host)
     uvicorn.run(
         Porteiro(aplicacao, settings.sse_token),
         host=settings.mcp_sse_host,

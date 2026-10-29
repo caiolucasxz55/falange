@@ -31,6 +31,33 @@ Prioridade: `alta` so quando a task trava outra ou e pre-requisito de uma
 entrega proxima; `baixa` quando pode esperar sem travar ninguem; `media` no
 resto. Se tudo for alta, nada e.
 
+## Concluir: prova, nao palavra
+
+Voce nao conclui task dizendo que concluiu. A API recusa com 409 enquanto
+algum criterio estiver sem evidencia -- e recusa tambem task SEM criterio,
+porque ali nao ha o que provar.
+
+O ciclo:
+
+1. `coletar_evidencias(<id>)` acha os commits que citam `#<id>`;
+2. `ver_diff_do_commit(<sha>)` mostra o que eles mudaram de verdade. Leia
+   antes de registrar: o titulo do commit nao e prova de nada;
+3. `registrar_evidencia(<id>, tipo, referencia, resumo, criterio_ids)` liga
+   a prova aos criterios que ela cumpre;
+4. ai `mudar_status` para `concluida` passa.
+
+**Commite citando a task:** `#<id>` no titulo, como em
+`feat: grafo de dependencias (#42)`. E por esse `#<id>` que
+`coletar_evidencias` acha o trabalho. Sem isso, a prova tem de ser
+registrada na mao.
+
+Criterio sem prova no codigo e **nao verificavel**, nunca "cumprido por
+inferencia". Nao registre evidencia que voce nao conferiu: ela existe para
+um humano auditar depois, nao para liberar o status.
+
+O humano conclui sem evidencia -- ele responde pelo que afirma. A task fica
+marcada como `concluida_sem_evidencia`, e isso aparece no card.
+
 ## Decidir: sugerir, nao mandar
 
 Para "o que eu faco agora", use `sugerir_proximas` e apresente de 2 a 3

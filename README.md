@@ -237,6 +237,91 @@ abaixo do marcador vira um criterio por bullet, e texto acima de 200 chars
 e cortado com reticencia. O "de 1 a 5" vale para o que se cria daqui pra
 frente.
 
+## Evidencia: concluir com prova
+
+Uma task concluida pela IA precisa de prova, nao de afirmacao.
+
+A assimetria que justifica isso: quando um dev diz "terminei", ele responde
+por aquilo -- tem nome e historico no time. Quando a IA diz "terminei", nao
+responde por nada; na sessao seguinte ela nao lembra de ter dito. Entao a
+afirmacao dela nao vale como fato, e o que vale e o que da para conferir
+depois de ela ter ido embora.
+
+| Papel | Conclui |
+|---|---|
+| admin, lead, dev | sempre; a task fica marcada `concluida_sem_evidencia` |
+| ia | so com evidencia ligada a TODOS os criterios |
+
+O humano concluir sem prova e de proposito, nao um furo: a pessoa responde
+pelo que afirma, e travar o dev atras de um formulario faria o Falange
+atrapalhar o trabalho em vez de organiza-lo. O preco e transparencia, nao
+proibicao.
+
+Para a IA, "todos os criterios com evidencia" nao basta: a task precisa TER
+criterio. Sem essa segunda metade a regra se burla sozinha -- lista vazia
+satisfaz "todos" por vacuidade, e quem escolhe os criterios e justamente
+quem deveria obedecer a exigencia.
+
+A recusa e **409, nao 403**: o papel ALCANCA a acao, o que falta e a prova.
+403 mandaria a IA pedir permissao a um humano, quando o caminho certo e
+registrar a evidencia.
+
+### Os quatro tipos
+
+| Tipo | Referencia | Conferivel por terceiros? |
+|---|---|---|
+| `commit` | sha (7 a 40 hex) | sim, com `git show` |
+| `teste` | o teste que cobre o criterio | sim, rodando |
+| `link` | URL | depende de quem le |
+| `manual` | nao tem; o resumo e obrigatorio | nao, so confianca |
+
+O schema valida o que da para validar sem o repositorio na mao: formato do
+sha, referencia obrigatoria em `teste` e `link`, resumo obrigatorio em
+`manual`. Evidencia de commit sem sha nao prova nada e ainda assim
+destravaria a conclusao -- o que e pior que nao ter prova.
+
+Se o commit EXISTE e se faz o que diz, quem confere e quem le. O Falange
+nao tem como saber, e finge que nao sabe em vez de inventar um veredito.
+
+### A convencao de commit
+
+`#<id>` no titulo: `feat: grafo de dependencias (#42)`. E por isso que
+`coletar_evidencias(42)` acha o trabalho.
+
+O regex e `#42([^0-9]|$)`, nao `#42`: sem o grupo final, buscar a task 4
+traria todo commit das tasks 40 a 49, e a evidencia da 4 ficaria cheia de
+trabalho que nao e dela.
+
+### Por que `coletar_evidencias` so existe no stdio
+
+Ela roda `git` na maquina onde o SERVIDOR esta. No stdio isso e a maquina
+do dev, e o repositorio e o dele. No SSE o processo roda num container,
+longe de quem chamou -- ler o git de la examinaria um repositorio que nao e
+de ninguem, ou nenhum.
+
+Por isso ela recusa no SSE em vez de responder errado: uma lista vazia de
+commits pareceria "nao ha evidencia", que e a conclusao OPOSTA a verdade
+("nao da para olhar daqui").
+
+O transporte e declarado pelo entrypoint ao montar o servidor
+(`build_server(nome, transporte)`), nao adivinhado por nome nem por
+variavel de ambiente -- para nao haver como ficar errado em silencio.
+
+`subprocess` roda com lista de argumentos e `shell=False`, e o sha passa por
+um `fullmatch` antes. E a unica parte do projeto que executa um binario
+externo, entao vale a defesa em profundidade.
+
+### O que a IA nao pode desfazer
+
+Nao existe `apagar_evidencia_propria`. A IA registra a propria prova; deixar
+que ela tambem a apagasse daria a ela como apagar o rastro do que fez.
+Apagar evidencia exige a permissao ampla de apagar.
+
+`concluir_com_evidencia` e o valor novo no enum de autonomia, nascendo em
+`perguntar`. Nao tem tipo de decisao, entao nunca promove sozinho -- e
+desejavel: o que autorizaria confiar nela nao e um historico de escolhas
+aceitas, e um humano ter CONFERIDO a prova. Essa promocao e na mao.
+
 ## Ambiente de teste
 
 Um segundo backend, com banco proprio, para verificacao ponta a ponta nao
@@ -270,7 +355,7 @@ Cada pacote tem a sua, lida do `.env` ou de variaveis de ambiente:
 | Arquivo | Le |
 |---|---|
 | `backend/config.py` | `DATABASE_URL`, `LIMITE_SOBRECARGA`, `CORS_ORIGINS` |
-| `falange_mcp/config.py` | `BACKEND_URL`, `FALANGE_DOCS_ROOT`, `MCP_SSE_HOST`, `MCP_SSE_PORT` |
+| `falange_mcp/config.py` | `BACKEND_URL`, `FALANGE_DOCS_ROOT`, `FALANGE_REPO_ROOT`, `MCP_SSE_HOST`, `MCP_SSE_PORT` |
 
 O MCP nao conhece `DATABASE_URL` de proposito: nao tem como falar com o
 banco nem por engano.
@@ -290,6 +375,11 @@ banco nem por engano.
 | `verificar_sobrecarga` | nao |
 | `gerar_tasks_a_partir_de_arquivo` | **nao** - aceita arquivo ou pasta; so sugere, para voce revisar |
 | `validar_task` | nao (recusa criterio que so promete intencao) |
+| `coletar_evidencias` | **nao** - le o git local; so no stdio |
+| `ver_diff_do_commit` | **nao** - le o git local; so no stdio |
+| `registrar_evidencia` | sim (liga a prova aos criterios) |
+| `listar_evidencias` | nao |
+| `apagar_evidencia` | sim (criterio volta a "nao verificado") |
 | `sugerir_proximas` | nao (ranking explicado) |
 | `ver_calibracao` | nao (estimado x real) |
 | `ver_perfil` | nao (o que o time ensinou) |

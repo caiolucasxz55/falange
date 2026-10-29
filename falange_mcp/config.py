@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # Raiz permitida para gerar_tasks_a_partir_de_arquivo.
     falange_docs_root: str = "."
 
+    # Repositorio git lido por coletar_evidencias. Default: a raiz do
+    # proprio Falange, que e o caso de uso que originou a tool.
+    #
+    # Separada de `falange_docs_root` de proposito: uma e "o que eu deixo a
+    # IA LER como documentacao", a outra e "de onde vem a prova". Apontar a
+    # segunda para outro lugar nao deve ampliar a primeira.
+    falange_repo_root: str = str(_RAIZ)
+
     # Em que projeto este servidor escreve. Vai no header
     # X-Falange-Projeto em toda chamada.
     #
@@ -48,6 +56,10 @@ class Settings(BaseSettings):
     @property
     def docs_root(self) -> Path:
         return Path(self.falange_docs_root).resolve()
+
+    @property
+    def repo_root(self) -> Path:
+        return Path(self.falange_repo_root).resolve()
 
 
 settings = Settings()

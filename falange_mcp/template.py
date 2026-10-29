@@ -19,9 +19,12 @@ TIPOS_DECISAO = (
     "proxima_task", "prioridade", "estimativa", "quebrar_task", "pre_task",
 )
 ORIGENS_PREFERENCIA = ("explicita", "inferida")
+# Da prova mais conferivel para a que depende de confiar em quem
+# escreveu. Espelha `models/evidencia.py`.
+TIPOS_EVIDENCIA = ("commit", "teste", "link", "manual")
 TIPOS_ACAO = (
     "definir_prioridade", "definir_estimativa", "marcar_bloqueio",
-    "criar_pre_tasks_aprovadas",
+    "criar_pre_tasks_aprovadas", "concluir_com_evidencia",
 )
 NIVEIS_AUTONOMIA = ("perguntar", "confirmar_em_lote", "automatico")
 

@@ -50,7 +50,15 @@
       "mcp__falange__desativar_preferencia",
       "mcp__falange-teste__desativar_preferencia",
       "mcp__falange__ver_autonomia",
-      "mcp__falange-teste__ver_autonomia"
+      "mcp__falange-teste__ver_autonomia",
+      "mcp__falange__coletar_evidencias",
+      "mcp__falange-teste__coletar_evidencias",
+      "mcp__falange__ver_diff_do_commit",
+      "mcp__falange-teste__ver_diff_do_commit",
+      "mcp__falange__registrar_evidencia",
+      "mcp__falange-teste__registrar_evidencia",
+      "mcp__falange__listar_evidencias",
+      "mcp__falange-teste__listar_evidencias"
     ],
     "ask": [
       "mcp__falange__apagar_task",
@@ -60,7 +68,9 @@
       "mcp__falange__definir_configuracao",
       "mcp__falange-teste__definir_configuracao",
       "mcp__falange__definir_autonomia",
-      "mcp__falange-teste__definir_autonomia"
+      "mcp__falange-teste__definir_autonomia",
+      "mcp__falange__apagar_evidencia",
+      "mcp__falange-teste__apagar_evidencia"
     ]
   }
 }
