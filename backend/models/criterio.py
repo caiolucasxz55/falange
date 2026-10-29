@@ -5,9 +5,9 @@ pelo lint da pre-task. Servia para a pessoa ler, e so: nada no sistema sabia
 quantos criterios a task tinha, nem quais faltavam. Em tabela, cada um e um
 item que pode ser cumprido por conta propria.
 
-`cumprido_em` e `evidencia_id` existem para a Fase F, onde concluir uma task
-passa a pedir evidencia por criterio. Aqui eles so nascem vazios: nada no
-caminho da E2 os preenche, e a tela mostra a lista como checklist de leitura.
+`cumprido_em` e `evidencia_id` sao preenchidos pelo registro de evidencia
+(Fase F): a IA so conclui uma task com prova ligada a TODOS os criterios.
+Ver `dominio/conclusao.py`.
 """
 
 from datetime import datetime
@@ -46,7 +46,19 @@ class Criterio(Base):
     texto: Mapped[str] = mapped_column(Text)
     ordem: Mapped[int] = mapped_column()
 
-    # Preenchidos na Fase F. Nulo = ainda nao verificado.
+    # A prova de que este criterio foi cumprido. Nulo = nao verificado.
+    #
+    # A ligacao mora aqui, e nao na evidencia, porque uma evidencia so pode
+    # cobrir VARIOS criterios (um commit que cumpre tres). O contrario nao
+    # acontece: um criterio tem uma prova, ou nao tem.
+    #
+    # SET NULL, nao CASCADE: apagar a evidencia nao deve apagar o criterio.
+    # O criterio volta a "nao verificado", que e a verdade.
+    evidencia_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("evidencia.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Preenchido junto da evidencia. Redundante com `evidencia_id is not
+    # None` de proposito: diz QUANDO foi verificado, nao so que foi.
     cumprido_em: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

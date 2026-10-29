@@ -12,6 +12,7 @@ from backend.schemas.aprendizado import (
     PreferenciaOut,
 )
 from backend.schemas.configuracao import ConfiguracaoEdicao, ConfiguracaoOut
+from backend.schemas.evidencia import EvidenciaNova, EvidenciaOut
 from backend.schemas.limites import MAX_DESCRICAO, MAX_JSON_DECISAO, json_cabe
 from backend.schemas.nota import NotaEdicao, NotaNova, NotaOut
 from backend.schemas.projeto import ProjetoAtual, ProjetoNovo, ProjetoOut
@@ -43,6 +44,8 @@ __all__ = [
     "DependenciaNova",
     "Carga",
     "CriterioOut",
+    "EvidenciaNova",
+    "EvidenciaOut",
     "ConfiguracaoEdicao",
     "ConfiguracaoOut",
     "DecisaoNova",

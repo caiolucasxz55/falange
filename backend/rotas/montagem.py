@@ -4,15 +4,15 @@ Mora em `rotas/` porque e montagem de resposta, nao dado nem regra: o
 repositorio devolve linhas, o dominio calcula sobre arestas, e e aqui que
 os dois viram um `TaskOut`.
 
-Existe para `depende_de`, `travando`, `bloqueada` e `criterios` sairem
-iguais em toda rota que devolve task. Montar isso a mao em cada uma era o
+Existe para `depende_de`, `travando`, `bloqueada`, `criterios` e
+`concluida_sem_evidencia` sairem iguais em toda rota que devolve task. Montar isso a mao em cada uma era o
 caminho curto para uma responder diferente da outra.
 """
 
 from typing import Iterable, Mapping, Optional
 
-from backend.dominio import grafo
-from backend.models import Criterio, Task
+from backend.dominio import conclusao, grafo
+from backend.models import Criterio, Status, Task
 from backend.schemas import CriterioOut, TaskOut
 
 
@@ -27,9 +27,14 @@ def montar_task(
     saida.depende_de = grafo.depende_de(arestas, task.id)
     saida.travando = grafo.travando(arestas, task.id)
     saida.bloqueada = grafo.bloqueada(arestas, task.id, concluidas)
-    saida.criterios = [
-        CriterioOut.model_validate(c) for c in (criterios or {}).get(task.id, [])
-    ]
+    meus_criterios = (criterios or {}).get(task.id, [])
+    saida.criterios = [CriterioOut.model_validate(c) for c in meus_criterios]
+    # Calculado sempre, mas so significa algo em task concluida: numa task
+    # aberta "sem evidencia" e o estado normal, nao uma informacao.
+    saida.concluida_sem_evidencia = (
+        task.status == Status.concluida
+        and conclusao.concluida_sem_evidencia(meus_criterios)
+    )
     return saida
 
 

@@ -16,7 +16,7 @@ JANELA = 5
 # Do menos para o mais autonomo. A ordem e a escada de promocao.
 NIVEIS = ("perguntar", "confirmar_em_lote", "automatico")
 
-# As quatro acoes que podem ganhar autonomia.
+# As acoes que podem ganhar autonomia.
 #
 # Apagar task e apagar nota NAO estao aqui de proposito, e nao devem entrar:
 # acao destrutiva nunca fica automatica, por melhor que seja o historico.
@@ -25,15 +25,22 @@ ACOES = (
     "definir_estimativa",
     "marcar_bloqueio",
     "criar_pre_tasks_aprovadas",
+    "concluir_com_evidencia",
 )
 
-# Que tipo de decisao alimenta cada acao. `marcar_bloqueio` nao tem um tipo
-# de decisao proprio hoje, entao nunca acumula historico e nunca promove.
+# Que tipo de decisao alimenta cada acao. `marcar_bloqueio` e
+# `concluir_com_evidencia` nao tem um tipo de decisao proprio hoje, entao
+# nunca acumulam historico e nunca promovem sozinhos.
+#
+# Para `concluir_com_evidencia` isso e desejavel, nao uma falta: o que
+# autorizaria promover nao e um historico de escolhas aceitas, e um humano
+# ter conferido a prova. Essa promocao e na mao, pela tela.
 DECISAO_POR_ACAO: dict[str, Optional[str]] = {
     "definir_prioridade": "prioridade",
     "definir_estimativa": "estimativa",
     "marcar_bloqueio": None,
     "criar_pre_tasks_aprovadas": "pre_task",
+    "concluir_com_evidencia": None,
 }
 
 # Campo corrigido pelo humano -> acao que perde confianca por causa disso.

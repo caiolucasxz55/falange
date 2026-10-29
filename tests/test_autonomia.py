@@ -2,6 +2,7 @@
 
 from backend.dominio.autonomia import (
     ACOES,
+    DECISAO_POR_ACAO,
     JANELA,
     NIVEIS,
     acoes_a_rebaixar,
@@ -9,6 +10,7 @@ from backend.dominio.autonomia import (
     pode_promover,
     proximo_nivel,
 )
+from backend.models.enums import TipoAcao
 
 
 def decisao(aceita=True, tipo="estimativa", **campos):
@@ -18,10 +20,42 @@ def decisao(aceita=True, tipo="estimativa", **campos):
 
 
 def test_acoes_destrutivas_ficam_fora_do_enum():
-    # Apagar nunca vira automatico: a garantia e nao existir no enum.
-    assert "apagar_task" not in ACOES
-    assert "apagar_nota" not in ACOES
-    assert len(ACOES) == 4
+    """Apagar nunca vira automatico: a garantia e nao existir no enum.
+
+    A lista e explicita, e nao uma contagem: `len(ACOES) == 4` quebrava a
+    cada acao nova legitima, e o que importa nao e QUANTAS acoes existem --
+    e que nenhuma delas apague nada.
+    """
+    destrutivas = {
+        "apagar_task",
+        "apagar_task_propria",
+        "apagar_nota",
+        "apagar_nota_propria",
+        "apagar_evidencia",
+    }
+    assert destrutivas.isdisjoint(ACOES)
+    # Nem por outro nome: qualquer coisa que apaga fica de fora.
+    assert not [a for a in ACOES if a.startswith("apagar")]
+
+
+def test_todo_valor_do_enum_do_banco_esta_no_dominio():
+    """O enum do Postgres e a tupla do dominio nao podem divergir.
+
+    Se divergirem, `montar` deixa uma acao sem linha (ou a migration cria
+    linha para uma acao que o dominio nao conhece) e a tela mostra um
+    painel incompleto, sem erro em lugar nenhum.
+    """
+    assert {a.value for a in TipoAcao} == set(ACOES)
+
+
+def test_concluir_com_evidencia_nunca_promove_sozinho():
+    """Nao tem tipo de decisao: nao acumula historico, nao sobe na janela.
+
+    E de proposito. O que autorizaria confiar nela nao e uma sequencia de
+    escolhas aceitas -- e um humano ter CONFERIDO a prova. Essa promocao e
+    na mao, pela tela.
+    """
+    assert DECISAO_POR_ACAO["concluir_com_evidencia"] is None
 
 
 # --------------------------------------------------------------------------

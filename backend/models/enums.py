@@ -56,6 +56,10 @@ class TipoAcao(str, PyEnum):
     definir_estimativa = "definir_estimativa"
     marcar_bloqueio = "marcar_bloqueio"
     criar_pre_tasks_aprovadas = "criar_pre_tasks_aprovadas"
+    # Concluir task com a prova que a IA mesma coletou. Nasce em
+    # `perguntar`: e a acao que mais pede desconfianca, porque e a IA
+    # atestando o proprio trabalho.
+    concluir_com_evidencia = "concluir_com_evidencia"
 
 
 class NivelAutonomia(str, PyEnum):

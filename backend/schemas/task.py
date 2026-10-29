@@ -32,8 +32,9 @@ class CriterioOut(BaseModel):
     id: int
     texto: str
     ordem: int
-    # Nulo = nao verificado. Quem preenche e a Fase F, pela evidencia; nada
-    # na E2 marca criterio como cumprido, nem a tela.
+    # A prova. Nulo = nao verificado. Quem liga e `registrar_evidencia`;
+    # a tela nao marca criterio, ela mostra o que foi provado.
+    evidencia_id: Optional[int] = None
     cumprido_em: Optional[datetime] = None
 
 
@@ -59,6 +60,13 @@ class TaskOut(BaseModel):
     # Como se sabe que a task acabou. Vazia nas tasks antigas em que a
     # migration 0010 nao achou a linha "Criterio de aceite:" na descricao.
     criterios: list[CriterioOut] = Field(default_factory=list)
+
+    # Derivado: algum criterio ficou sem prova (ou nao ha criterio nenhum).
+    #
+    # So interessa em task concluida, e ai e o preco da regra: o humano
+    # fecha sem evidencia, e isso aparece. Nao e acusacao -- e a diferenca
+    # entre "ninguem conferiu" e "ninguem sabe se alguem conferiu".
+    concluida_sem_evidencia: bool = False
 
     status: Status
     prioridade: Prioridade

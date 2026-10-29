@@ -38,6 +38,7 @@ ACOES = (
     "resolver_nota",
     "apagar_nota",
     "apagar_nota_propria",
+    "registrar_evidencia",
     "registrar_decisao",
     "criar_preferencia",
     "ativar_preferencia",
@@ -73,6 +74,7 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "resolver_nota",
         "apagar_nota",
         "apagar_nota_propria",
+        "registrar_evidencia",
         "registrar_decisao",
         "criar_preferencia",
         "ativar_preferencia",
@@ -90,6 +92,7 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "editar_nota",
         "resolver_nota",
         "apagar_nota_propria",
+        "registrar_evidencia",
         "registrar_decisao",
         "criar_preferencia",
         "rebaixar_autonomia",
@@ -120,6 +123,9 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "editar_nota",
         "resolver_nota",
         "apagar_nota_propria",
+        # Registrar prova ela pode, e deve: e o que torna o trabalho dela
+        # conferivel. Quem julga se a prova presta e quem le.
+        "registrar_evidencia",
         "registrar_decisao",
         "criar_preferencia",
         "rebaixar_autonomia",

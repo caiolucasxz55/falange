@@ -38,12 +38,15 @@ def task_falsa(task_id: int):
     )
 
 
-def criterio_falso(criterio_id: int, texto: str, ordem: int, cumprido=None):
+def criterio_falso(
+    criterio_id: int, texto: str, ordem: int, cumprido=None, evidencia=None
+):
     return SimpleNamespace(
         id=criterio_id,
         task_id=1,
         texto=texto,
         ordem=ordem,
+        evidencia_id=evidencia,
         cumprido_em=cumprido,
         criado_em=AGORA,
     )
@@ -138,3 +141,49 @@ def test_recusa_mais_de_cinco_criterios():
 def test_lista_vazia_e_aceita_por_compatibilidade():
     """A tela ainda nao manda criterio; exigir aqui a derrubaria."""
     assert _nova().criterios == []
+
+
+# ------------------------------------------------- concluida sem evidencia
+
+
+def task_concluida(task_id=1):
+    task = task_falsa(task_id)
+    task.status = Status.concluida
+    task.concluida_em = AGORA
+    return task
+
+
+def test_concluida_sem_prova_sai_marcada():
+    saida = montar_task(
+        task_concluida(),
+        [],
+        set(),
+        {1: [criterio_falso(1, "retorna 401 no vencido", 0)]},
+    )
+    assert saida.concluida_sem_evidencia is True
+
+
+def test_concluida_com_prova_em_tudo_nao_sai_marcada():
+    saida = montar_task(
+        task_concluida(),
+        [],
+        set(),
+        {1: [criterio_falso(1, "retorna 401 no vencido", 0, evidencia=7)]},
+    )
+    assert saida.concluida_sem_evidencia is False
+    assert saida.criterios[0].evidencia_id == 7
+
+
+def test_task_aberta_nunca_sai_marcada():
+    """Numa task aberta, "sem evidencia" e o estado normal.
+
+    Marcar ali encheria o board de aviso sobre tudo o que ainda nao foi
+    feito -- que e, por definicao, quase todo o board.
+    """
+    saida = montar_task(task_falsa(1), [], set(), {})
+    assert saida.concluida_sem_evidencia is False
+
+
+def test_concluida_sem_criterio_nenhum_conta_como_sem_evidencia():
+    # As tasks antigas: nao ha prova de nada.
+    assert montar_task(task_concluida(), [], set(), {}).concluida_sem_evidencia

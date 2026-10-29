@@ -12,12 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.db import get_session
-from backend.dominio import grafo
+from backend.dominio import conclusao, grafo
 from backend.dominio.papeis import acoes_para_campos
 from backend.models import Bloco, Origem, Prioridade, Status
 from backend.models import Projeto
 from backend.repositorio import criterios as repo_criterios
 from backend.repositorio import dependencias as repo_deps
+from backend.repositorio import evidencias as repo_evidencias
 from backend.repositorio import tasks as repo
 from backend.rotas.montagem import montar_task, montar_tasks
 from backend.seguranca.dependencias import (
@@ -28,6 +29,8 @@ from backend.seguranca.dependencias import (
 from backend.schemas.texto import NomeOpcional
 from backend.schemas import (
     DependenciaNova,
+    EvidenciaNova,
+    EvidenciaOut,
     Carga,
     MudancaStatus,
     TaskEdicao,
@@ -246,10 +249,107 @@ async def mudar_status(
     session: AsyncSession = Depends(get_session),
 ):
     chamador.exigir("mudar_status_task")
+
+    # Concluir e a unica transicao com porteiro: a IA precisa de prova em
+    # todos os criterios. As outras nao afirmam nada sobre o trabalho estar
+    # pronto, entao nao ha o que provar.
+    if body.status == Status.concluida:
+        task = await repo.buscar(session, projeto.id, task_id)
+        if task is None:
+            raise HTTPException(404, f"task {task_id} nao encontrada")
+
+        criterios = (
+            await repo_criterios.por_task(session, [task_id])
+        ).get(task_id, [])
+        # O papel vem do banco a cada request (ver seguranca/dependencias):
+        # rebaixar alguem vale no request seguinte, nao no vencimento do
+        # token. Aqui isso importa -- e a decisao mais sensivel da API.
+        pode, motivo = conclusao.pode_concluir(chamador.papel, criterios)
+        if not pode:
+            # 409, nao 403: o papel ALCANCA a acao; o que falta e a prova.
+            # 403 mandaria a IA pedir permissao a um humano, quando o
+            # caminho certo e registrar a evidencia.
+            raise HTTPException(409, motivo)
+
     task = await repo.definir_status(session, projeto.id, task_id, body.status)
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
     return await _montar_uma(session, projeto.id, task)
+
+
+# --------------------------------------------------------------- evidencia
+
+
+@rotas.get("/tasks/{task_id}/evidencias", response_model=list[EvidenciaOut])
+async def listar_evidencias(
+    task_id: int,
+    chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
+    session: AsyncSession = Depends(get_session),
+):
+    """As provas anexadas a esta task."""
+    chamador.exigir("ler")
+    if await repo.buscar(session, projeto.id, task_id) is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+    return await repo_evidencias.listar_por_task(session, task_id)
+
+
+@rotas.post(
+    "/tasks/{task_id}/evidencias", response_model=EvidenciaOut, status_code=201
+)
+async def registrar_evidencia(
+    task_id: int,
+    body: EvidenciaNova,
+    chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
+    session: AsyncSession = Depends(get_session),
+):
+    """Anexa uma prova e liga os criterios que ela cumpre."""
+    chamador.exigir("registrar_evidencia")
+    if await repo.buscar(session, projeto.id, task_id) is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+
+    evidencia, erro = await repo_evidencias.registrar(
+        session,
+        task_id,
+        body.tipo,
+        body.referencia,
+        body.resumo,
+        chamador.id,
+        body.criterio_ids,
+    )
+    if erro:
+        # 409: o pedido e coerente, mas cruza a fronteira de outra task --
+        # a mesma semantica das dependencias entre projetos.
+        raise HTTPException(409, erro)
+    return evidencia
+
+
+@rotas.delete(
+    "/tasks/{task_id}/evidencias/{evidencia_id}", status_code=204
+)
+async def apagar_evidencia(
+    task_id: int,
+    evidencia_id: int,
+    chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
+    session: AsyncSession = Depends(get_session),
+):
+    """Tira a prova. Os criterios dela voltam a "nao verificado".
+
+    Destrutiva, entao exige a permissao ampla -- nao ha
+    `apagar_evidencia_propria`: a IA registra a propria prova, e deixar que
+    ela tambem a apagasse daria a ela como desfazer o rastro do que fez.
+    """
+    chamador.exigir("apagar_task")
+    if await repo.buscar(session, projeto.id, task_id) is None:
+        raise HTTPException(404, f"task {task_id} nao encontrada")
+
+    if not await repo_evidencias.remover(session, task_id, evidencia_id):
+        raise HTTPException(
+            404, f"evidencia {evidencia_id} nao e da task {task_id}"
+        )
+    return Response(status_code=204)
 
 
 @rotas.patch("/tasks/{task_id}", response_model=TaskOut)

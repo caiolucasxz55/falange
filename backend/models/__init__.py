@@ -16,6 +16,14 @@ from backend.models.criterio import (
     Criterio,
 )
 from backend.models.dependencia import Dependencia
+from backend.models.evidencia import (
+    MAX_REFERENCIA,
+    MAX_RESUMO,
+    MAX_SHA,
+    MIN_SHA,
+    Evidencia,
+    TipoEvidencia,
+)
 from backend.models.enums import (
     ABERTAS,
     Bloco,
@@ -43,9 +51,14 @@ __all__ = [
     "Decisao",
     "Dependencia",
     "Estimativa",
+    "Evidencia",
     "MAX_CRITERIOS",
+    "MAX_REFERENCIA",
+    "MAX_RESUMO",
+    "MAX_SHA",
     "MAX_TEXTO_CRITERIO",
     "MIN_CRITERIOS",
+    "MIN_SHA",
     "MIN_TEXTO_CRITERIO",
     "NivelAutonomia",
     "Nota",
@@ -60,6 +73,7 @@ __all__ = [
     "Status",
     "Task",
     "TipoAcao",
+    "TipoEvidencia",
     "TipoDecisao",
     "Usuario",
 ]
