@@ -15,8 +15,11 @@ o banco. Se o pedido estiver vazio, pergunte o que deve ser feito e pare.
 Monte os campos a partir do pedido:
 
 - `titulo`: imperativo, 6 a 80 caracteres, sem ponto final.
-- `descricao`: 40 a 800 caracteres. O que fazer e como saber que acabou.
-  Termine com uma linha `Criterio de aceite: ...`.
+- `descricao`: 40 a 800 caracteres. O que fazer e por que.
+- `criterios`: de 1 a 5 criterios de aceite, 10 a 200 chars cada. Cada um
+  tem de ser OBSERVAVEL -- algo que da para olhar e dizer "cumpriu" ou "nao
+  cumpriu". "o login com token vencido retorna 401" vale; "funcionar bem"
+  nao. Nao escreva criterio como linha na descricao: a lista e o campo.
 - `estimativa`: PP (ate ~2h), P (ate ~1 dia), M (ate ~3 dias), G (mais que isso).
 - `bloco`: frontend, backend, infra ou seguranca.
 - `prioridade`: alta se trava outra task ou e pre-requisito de uma entrega
@@ -96,12 +99,15 @@ acima, vale ele.
 Com a task aprovada, chame `criar_task`. O pedido do usuario ja e a
 autorizacao para criar.
 
-Se houver dependencia, chame `marcar_bloqueio` com o `id` devolvido. Se
-voltar `erro`, reporte.
+Se houver dependencia, chame `adicionar_dependencia` com o `id` devolvido
+(`task_id` = a que espera, `depende_de` = a que precisa sair antes). Uma
+task pode esperar por varias: chame uma vez por dependencia. Se voltar
+`erro`, reporte -- a API recusa ciclo, inclusive o longo de varios passos.
 
 ## 4. Relatorio
 
-Mostre `#id titulo [estimativa/bloco/prioridade]`, a descricao final e o bloqueio, se
-houver. Se voce mudou algo relevante do pedido original, diga o que.
+Mostre `#id titulo [estimativa/bloco/prioridade]`, a descricao final, os
+criterios de aceite e as dependencias, se houver. Se voce mudou algo
+relevante do pedido original, diga o que.
 
 Lembre que ela aparece em http://localhost:3010 ao clicar em **Recarregar**.

@@ -653,6 +653,8 @@ Com a stack no ar, abra o projeto no Claude Code e use:
 | `/falange-gerar <arquivo>` | documentacao/codigo vira tasks: sugere, valida e so cria depois da sua aprovacao |
 | `/falange-nova <descricao>` | uma task a partir de texto livre (entende "depois da #7") |
 | `/falange-status [bloco\|pessoa]` | panorama: blocos, cadeias de bloqueio, sobrecarga (so leitura) |
+| `/falange-verificar <id>` | veredito por criterio, com a prova citada; conclui conforme a autonomia |
+| `/falange-trabalhar [id]` | o ciclo inteiro: escolher, implementar, commitar com `#id`, verificar |
 
 Pedidos em texto livre tambem funcionam: o `CLAUDE.md` manda sempre usar as
 tools do MCP, nunca banco ou codigo.

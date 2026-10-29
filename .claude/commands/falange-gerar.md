@@ -78,8 +78,9 @@ Chame `validar_task` para cada pre-task (`titulo`, `descricao`, `estimativa`,
 - `precisa_de_ajuste`: reescreva resolvendo cada item de `motivos` e valide
   de novo. No maximo 2 correcoes por task. Se ainda reprovar, mantenha como
   reprovada e mostre os motivos.
-- Corrija o conteudo, nao o lint: nada de colar "Criterio de aceite:" sem
-  um criterio de verdade, nem inflar texto para passar do minimo.
+- Corrija o conteudo, nao o lint: nada de criterio vago so para preencher
+  a lista, nem inflar texto para passar do minimo. Criterio que promete
+  intencao ("funcionar bem") o lint reprova de proposito.
 - Se a estimativa for questionada, use `estimativa_sugerida` como referencia,
   mas prefira quebrar uma task G em duas quando fizer sentido.
 
@@ -117,8 +118,9 @@ Pergunte tambem se ha um `responsavel`.
 Para as escolhidas:
 
 1. `criar_task` para cada uma. Guarde o `id` real devolvido.
-2. `marcar_bloqueio` para cada dependencia anotada, com os ids reais
-   (`task_id` = a que espera, `bloqueada_por` = a que precisa sair antes).
+2. `adicionar_dependencia` para cada dependencia anotada, com os ids reais
+   (`task_id` = a que espera, `depende_de` = a que precisa sair antes). Uma
+   chamada por aresta: uma task pode esperar por varias.
    Se voltar `erro` (ex.: ciclo), reporte e siga.
 
 ## 6. Relatorio

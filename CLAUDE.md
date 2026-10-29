@@ -80,6 +80,10 @@ Comandos prontos:
 - `/falange-status [bloco|responsavel]`: panorama, somente leitura.
 - `/falange-proximo [responsavel]`: caminhos para a proxima task; pergunta
   qual seguir e executa so o escolhido.
+- `/falange-verificar <id>`: veredito por criterio, com a prova citada.
+  Registra evidencia e conclui conforme a autonomia.
+- `/falange-trabalhar [id]`: o ciclo inteiro -- escolher, combinar o plano,
+  implementar, commitar com `#id` e verificar.
 
 As tools devolvem `{"erro": "..."}` em vez de falhar: leia a mensagem e
 corrija a chamada. "Backend inacessivel" significa que a stack esta fora:

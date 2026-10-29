@@ -156,6 +156,17 @@ export function TaskCard({
                 Bloqueada
               </span>
             )}
+            {task.concluida_sem_evidencia && (
+              // Ambar, nao vermelho: concluir sem prova e o que o humano
+              // PODE fazer. A marca informa quem le depois, nao acusa quem
+              // fechou.
+              <span
+                className="rounded bg-amber-100 px-2 py-0.5 font-medium text-amber-800"
+                title="Nenhum criterio foi ligado a uma evidencia"
+              >
+                sem evidencia
+              </span>
+            )}
             <span
               className={`rounded px-2 py-0.5 font-medium ${ESTILO_PRIORIDADE[task.prioridade]}`}
             >
@@ -192,7 +203,10 @@ export function TaskCard({
           {task.criterios.length > 0 && (
             <ul className="mt-2 space-y-1">
               {task.criterios.map((criterio) => {
-                const cumprido = criterio.cumprido_em !== null;
+                // A prova e o que conta. `cumprido_em` diz QUANDO, e some
+                // junto com a evidencia -- mas se um dia divergirem, quem
+                // manda e ter prova.
+                const cumprido = criterio.evidencia_id !== null;
                 return (
                   <li
                     key={criterio.id}
@@ -213,7 +227,14 @@ export function TaskCard({
                     >
                       {cumprido ? "✓" : ""}
                     </span>
-                    <span className={cumprido ? "text-gray-400 line-through" : ""}>
+                    <span
+                      className={cumprido ? "text-gray-400 line-through" : ""}
+                      title={
+                        cumprido
+                          ? `verificado pela evidencia #${criterio.evidencia_id}`
+                          : "sem evidencia"
+                      }
+                    >
                       {criterio.texto}
                     </span>
                   </li>

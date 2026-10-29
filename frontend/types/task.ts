@@ -19,13 +19,14 @@ export interface Criterio {
   id: number;
   texto: string;
   ordem: number;
+  /** A prova deste criterio, ou null se ninguem verificou. */
+  evidencia_id: number | null;
   /**
    * Data ISO de quando foi verificado, ou null.
    *
-   * Sempre null por enquanto: quem preenche e a Fase F, pela evidencia.
-   * A tela MOSTRA o checklist, nao marca -- clicar para dar por cumprido
+   * A tela MOSTRA o checklist, nao marca: clicar para dar por cumprido
    * seria o dev atestando a si mesmo, que e o que a evidencia veio
-   * substituir.
+   * substituir. Quem preenche isto e `registrar_evidencia`.
    */
   cumprido_em: string | null;
 }
@@ -50,6 +51,15 @@ export interface Task {
   bloqueada: boolean;
   /** Como se sabe que acabou. Vazia nas tasks antigas, sem criterio escrito. */
   criterios: Criterio[];
+  /**
+   * Derivado: a task esta concluida e algum criterio ficou sem prova (ou
+   * nao ha criterio nenhum).
+   *
+   * So vem true em task concluida. Nao e acusacao: o humano PODE concluir
+   * sem evidencia -- e a diferenca entre "ninguem conferiu" e "ninguem
+   * sabe se alguem conferiu".
+   */
+  concluida_sem_evidencia: boolean;
   status: Status;
   prioridade: Prioridade;
   /** Datas ISO 8601 com timezone, como o backend devolve. */

@@ -69,9 +69,9 @@ quando quiser.
 - "pegar/terminar a task X" -> `mudar_status` para `em_andamento`.
 - "corrigir a prioridade" -> `editar_task` com a nova prioridade.
 - "destravar" -> depende do caso: pode ser pegar a bloqueadora
-  (`mudar_status`) ou remover um bloqueio que nao faz mais sentido
-  (`marcar_bloqueio` com `bloqueada_por: null`). Confirme qual antes de
-  mexer, se nao estiver obvio.
+  (`mudar_status`) ou soltar uma dependencia que nao faz mais sentido
+  (`remover_dependencia`, que tira UMA aresta -- as outras continuam
+  valendo). Confirme qual antes de mexer, se nao estiver obvio.
 
 Nao execute os caminhos descartados. Nao crie task nova aqui.
 
@@ -84,3 +84,7 @@ o motivo, quando o dev disser.
 
 Uma linha com o que mudou (`#id` e o novo estado) e os alertas que seguem
 abertos. Lembre que a tela mostra isso em http://localhost:3010.
+
+Se o dev escolheu PEGAR uma task, ofereca em uma linha seguir com
+`/falange-trabalhar <id>`, que vai do em_andamento ate a verificacao. Nao
+emende sozinho.

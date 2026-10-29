@@ -22,7 +22,8 @@ Use SOMENTE tools de leitura do servidor MCP `falange`: `listar_tasks`,
 Seja curto. Nesta ordem:
 
 1. **Totais**: tasks por bloco e por status (aberta / em_andamento / concluida).
-2. **Bloqueios**: cada task com `bloqueada_por`, mostrando a cadeia inteira
+2. **Bloqueios**: cada task com `bloqueada` true, mostrando a cadeia
+   inteira a partir de `depende_de` e `travando`
    quando houver mais de um nivel (A trava B, B trava C: diga que o problema
    de C esta em A).
 3. **Sobrecarga**: so o que tiver `sobrecarregado: true`, com
