@@ -1,0 +1,32 @@
+# Fim de linha LF no repositorio, sempre.
+#
+# O projeto e desenvolvido no Windows e roda em container Linux. Sem isto,
+# cada `git add` avisava "LF will be replaced by CRLF" e o arquivo entrava
+# no repositorio com o fim de linha da maquina de quem commitou -- o que
+# produz diff inteiro de arquivo quando duas pessoas usam sistemas
+# diferentes, e esconde a mudanca de verdade no meio.
+#
+# `text=auto` deixa o git decidir o que e texto; `eol=lf` fixa o que vai
+# para o repositorio. Na area de trabalho do Windows o checkout continua
+# com CRLF quando o `core.autocrlf` pedir -- isto so manda no que e
+# versionado.
+* text=auto eol=lf
+
+# Binario: nunca normalizar, ou o arquivo corrompe.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# Script que o Windows executa precisa de CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Script que o container executa precisa de LF, mesmo no Windows: com
+# CRLF, o shebang vira `#!/bin/sh\r` e o erro e "no such file or
+# directory" apontando para um interpretador que existe.
+*.sh text eol=lf

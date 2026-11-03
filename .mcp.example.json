@@ -1,0 +1,46 @@
+{
+  "_leia": [
+    "Copie para .mcp.json e troque /caminho/para/falange pelo seu clone.",
+    "",
+    "Os dois servidores sao STDIO e rodam na sua maquina:",
+    "  falange       -> o backlog real, na porta 8010",
+    "  falange-teste -> o sandbox descartavel, na 8011 (banco em tmpfs)",
+    "",
+    "Toda verificacao ponta a ponta vai no falange-teste. O falange so",
+    "recebe trabalho de verdade.",
+    "",
+    "NUNCA ponha token aqui: este arquivo e versionado. O MCP le API_TOKEN",
+    "do .env da raiz, por caminho absoluto -- o stdio nao herda o ambiente",
+    "de quem o chamou, entao caminho relativo simplesmente nao acharia o",
+    ".env, e o token ficaria vazio sem ninguem perceber.",
+    "",
+    "Para conectar SEM ter o repositorio, nao use este arquivo: gere um",
+    "token na tela, em 'Conectar sua IA', e cole o .mcp.json que ela mostra",
+    "-- ele aponta para o servidor SSE e ja vem com o token dentro.",
+    "",
+    "No Windows, use barras normais (/) nos caminhos."
+  ],
+  "mcpServers": {
+    "falange": {
+      "command": "/caminho/para/falange/.venv/bin/python",
+      "args": ["-m", "falange_mcp.stdio"],
+      "env": {
+        "PYTHONPATH": "/caminho/para/falange",
+        "BACKEND_URL": "http://127.0.0.1:8010",
+        "FALANGE_DOCS_ROOT": "/caminho/para/falange",
+        "FALANGE_REPO_ROOT": "/caminho/para/falange"
+      }
+    },
+    "falange-teste": {
+      "command": "/caminho/para/falange/.venv/bin/python",
+      "args": ["-m", "falange_mcp.stdio"],
+      "env": {
+        "PYTHONPATH": "/caminho/para/falange",
+        "BACKEND_URL": "http://127.0.0.1:8011",
+        "FALANGE_DOCS_ROOT": "/caminho/para/falange",
+        "FALANGE_REPO_ROOT": "/caminho/para/falange",
+        "FALANGE_PROJETO": "sandbox"
+      }
+    }
+  }
+}

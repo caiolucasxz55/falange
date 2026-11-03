@@ -1,4 +1,7 @@
-"""Entrypoint MCP - transporte HTTP+SSE (para expor ao time).
+"""Entrypoint MCP - transporte HTTP+SSE (LEGADO).
+
+Preferir `falange_mcp/http.py` (Streamable HTTP), que e o transporte
+atual do MCP. Este fica para quem tem client que so fala SSE.
 
     python -m falange_mcp.sse
 
@@ -25,53 +28,11 @@ A logica das tools esta em tools.py -- este arquivo so escolhe o transporte.
 """
 
 import uvicorn
-from starlette.responses import JSONResponse
 
-from falange_mcp import credencial, transporte
+from falange_mcp import transporte
 from falange_mcp.config import settings
-from falange_mcp.credencial import partes_token
+from falange_mcp.porteiro import Porteiro
 from falange_mcp.server import build_server
-
-
-class Porteiro:
-    """Middleware ASGI cru que exige um token de conexao para deixar passar.
-
-    ASGI puro, e nao BaseHTTPMiddleware, porque aquele embrulha a resposta e
-    atrapalha o streaming do SSE. Requisicao valida passa intacta.
-
-    So o FORMATO e conferido: este processo nao tem banco para conferir o
-    hash, e nem deveria ter -- o MCP fala com o backend por HTTP e mais
-    nada. Quem recusa token revogado, vencido ou inventado e o backend, na
-    primeira chamada de tool.
-
-    Barrar aqui pelo formato ainda vale: devolve 401 na conexao, em vez de
-    deixar a pessoa conectar e so descobrir o problema quando a primeira
-    tool falhar.
-    """
-
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
-
-        cabecalhos = dict(scope.get("headers") or [])
-        autorizacao = cabecalhos.get(b"authorization", b"").decode("latin-1")
-        if partes_token(credencial.do_cabecalho(autorizacao)) is None:
-            recusa = JSONResponse(
-                {
-                    "detail": (
-                        "mande o seu token de conexao em "
-                        "'Authorization: Bearer flg_...'. Gere um na tela, "
-                        "em 'Conectar sua IA'"
-                    )
-                },
-                status_code=401,
-            )
-            return await recusa(scope, receive, send)
-
-        await self.app(scope, receive, send)
 
 
 if __name__ == "__main__":

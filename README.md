@@ -1,6 +1,21 @@
-# Falange V1 - backend + MCP
+# Falange V2
 
-Backend FastAPI sobre Postgres, exposto a uma IA por dois transportes MCP.
+Organizador de tasks para times de dev, onde a IA opera o quadro pelo MCP
+e responde pelo que faz.
+
+Backend FastAPI sobre Postgres, tela em Next.js com login e papeis, e um
+servidor MCP em dois transportes. O que distingue o Falange de um board
+comum e menos a lista de funcionalidades e mais o desenho em volta da IA:
+
+- ela **nao conclui task dizendo que concluiu** -- precisa de evidencia
+  ligada a cada criterio de aceite;
+- ela **nao aumenta a propria confianca**: ativar preferencia, promover
+  autonomia, mexer em configuracao e em usuario sao recusados por papel;
+- ela **nao cria compromisso de entrega**: marco e de quem responde pela
+  entrega;
+- o que ela decide com opcoes vira **decisao registrada**, e dai o sistema
+  aprende o padrao do time -- entre sessoes a IA nao lembra de nada, e o
+  banco lembra.
 
 ## Arquitetura
 
@@ -49,7 +64,7 @@ de verdade so, e os dois transportes ficam sendo cascas finas.
 | `db` | `localhost:5434` | Postgres 18, volume `pgdata` |
 | `migrate` | - | roda `alembic upgrade head` e sai |
 | `backend` | `localhost:8010` | API FastAPI |
-| `mcp-sse` | `localhost:8765` | servidor MCP para o time |
+| `mcp` | `localhost:8765/mcp` | servidor MCP para o time (Streamable HTTP) |
 
 Portas do host escolhidas para nao colidir com o que ja roda nesta maquina:
 5432 e do Postgres nativo, 8000 e 8001 sao de outros projetos.
@@ -57,7 +72,7 @@ Portas do host escolhidas para nao colidir com o que ja roda nesta maquina:
 O `stdio` nao vira servico: por definicao e um subprocesso que o client
 local sobe, nao um servidor que fica escutando.
 
-O `backend` tem healthcheck e o `mcp-sse` so sobe depois dele responder.
+O `backend` tem healthcheck e o `mcp` so sobe depois dele responder.
 O `migrate` roda como servico separado, entao a migration nao duplica
 quando houver mais de uma replica do backend.
 
@@ -455,6 +470,38 @@ variavel de ambiente -- para nao haver como ficar errado em silencio.
 um `fullmatch` antes. E a unica parte do projeto que executa um binario
 externo, entao vale a defesa em profundidade.
 
+## Transportes do MCP
+
+| Entrypoint | Transporte | Para que |
+|---|---|---|
+| `falange_mcp.stdio` | STDIO | a sua maquina, com o repositorio clonado |
+| `falange_mcp.http` | Streamable HTTP (`/mcp`) | o time, sem repositorio |
+| `falange_mcp.sse` | HTTP+SSE (`/sse`) | **legado**, para client que so fala SSE |
+
+Streamable HTTP e o transporte atual do MCP: um endpoint so, que responde
+JSON direto quando a resposta e curta e abre stream quando precisa, em vez
+do par `GET /sse` + `POST /messages/`. O compose sobe ele.
+
+O porteiro mora em `falange_mcp/porteiro.py` e e o MESMO nos dois: com uma
+copia em cada entrypoint, a tendencia e uma receber a correcao e a outra
+nao -- e a que ficar para tras vira a porta aberta de que ninguem lembra.
+
+### Por que as tools continuam sincronas
+
+O plano da V2 previa trocar `httpx` sincrono por `httpx.AsyncClient`, pela
+razao de sempre: chamada bloqueante dentro de servidor async trava o event
+loop.
+
+Isso **nao se aplica a este SDK**. O MCP roda funcao de tool sincrona em
+thread separada (`mcp/server/mcpserver/utilities/func_metadata.py`, a
+chamada `anyio.to_thread.run_sync`), entao o `httpx.request` das tools nao
+bloqueia o loop. Converter as 36 tools para async seria churn sem ganho --
+e ainda obrigaria a reescrever o wrapper de credencial, que e onde mora a
+parte delicada.
+
+Isto esta escrito aqui porque a proposta vai voltar: ela parece obviamente
+certa ate alguem abrir o SDK.
+
 ## Conectar o MCP sem ter o repositorio
 
 Antes disto, ligar a IA no Falange exigia o repositorio clonado -- e quem
@@ -760,7 +807,7 @@ duplicata) - nao depende do humor do modelo.
 
 A leitura (de arquivo ou pasta) e limitada a `FALANGE_DOCS_ROOT` (`/app/exemplos` no
 container). Caminho absoluto ou `../` fora dessa raiz e recusado - importa
-porque o `mcp-sse` e o que fica exposto ao time.
+porque o `mcp` e o que fica exposto ao time.
 
 ## Autenticacao
 

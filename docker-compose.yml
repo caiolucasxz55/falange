@@ -63,9 +63,11 @@ services:
 
   # Transporte SSE: o que voce expoe para o time.
   # O stdio NAO vira servico: ele e um subprocesso que o client local sobe.
-  mcp-sse:
+  mcp:
     build: .
-    command: python -m falange_mcp.sse
+    # Streamable HTTP, o transporte atual do MCP. O SSE continua em
+    # `falange_mcp/sse.py` para quem tem client que so fala ele.
+    command: python -m falange_mcp.http
     environment:
       BACKEND_URL: http://backend:8000
       FALANGE_DOCS_ROOT: /app/exemplos
