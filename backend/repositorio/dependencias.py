@@ -10,7 +10,8 @@ from typing import Optional
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import Dependencia, Status, Task
+from backend.models import Dependencia, Status, Task, TipoEvento
+from backend.repositorio import eventos
 
 
 async def listar_arestas(
@@ -48,7 +49,7 @@ async def existe(
 
 
 async def adicionar(
-    session: AsyncSession, task_id: int, depende_de_id: int
+    session: AsyncSession, task_id: int, depende_de_id: int, projeto_id: int
 ) -> None:
     """Grava a aresta. Quem valida (ciclo, projeto, existencia) e a rota.
 
@@ -59,11 +60,18 @@ async def adicionar(
     if await existe(session, task_id, depende_de_id):
         return
     session.add(Dependencia(task_id=task_id, depende_de_id=depende_de_id))
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.dependencia_adicionada,
+        task_id=task_id,
+        dados={"depende_de": depende_de_id},
+    )
     await session.commit()
 
 
 async def remover(
-    session: AsyncSession, task_id: int, depende_de_id: int
+    session: AsyncSession, task_id: int, depende_de_id: int, projeto_id: int
 ) -> bool:
     """False quando a aresta nao existia."""
     alvo: Optional[Dependencia] = await session.get(
@@ -72,6 +80,13 @@ async def remover(
     if alvo is None:
         return False
     await session.delete(alvo)
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.dependencia_removida,
+        task_id=task_id,
+        dados={"depende_de": depende_de_id},
+    )
     await session.commit()
     return True
 

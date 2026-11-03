@@ -36,6 +36,7 @@ from backend.repositorio import projetos as repo_projetos
 from backend.repositorio import tokens_mcp as repo_tokens
 from backend.repositorio import usuarios as repo
 from backend.seguranca import token_mcp as mod_token_mcp
+from backend.seguranca.contexto import definir_autor
 from backend.seguranca.sessao import ler_access
 from backend.seguranca.token import FONTE_MCP, PREFIXO
 
@@ -240,6 +241,17 @@ async def obter_projeto(
     return padrao
 
 
+def _marcar_autor(chamador: Chamador) -> Chamador:
+    """Deixa o id do chamador visivel para o registro de eventos.
+
+    O repositorio escreve a linha de historia na mesma transacao da
+    mudanca, e nao conhece quem chamou. Ver `seguranca/contexto.py` --
+    inclusive o limite: so registro, nunca autorizacao.
+    """
+    definir_autor(chamador.id)
+    return chamador
+
+
 async def obter_chamador(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -250,14 +262,14 @@ async def obter_chamador(
     if cabecalho.startswith(PREFIXO):
         chamador = await _do_access(session, cabecalho)
         if chamador is not None:
-            return chamador
+            return _marcar_autor(chamador)
 
         # JWT vem antes porque e o caso mais comum (toda a tela), e porque
         # `partes()` do token de conexao e barato: so olha o formato, sem
         # ir ao banco quando nao casa.
         chamador = await _do_token_mcp(request, session)
         if chamador is not None:
-            return chamador
+            return _marcar_autor(chamador)
 
     # Nao era JWT nem token de conexao: e o token compartilhado, que o
     # middleware ja validou.
@@ -267,7 +279,7 @@ async def obter_chamador(
             raise HTTPException(
                 503, "conta de servico falange-ia ausente ou inativa; rode as migrations"
             )
-        return Chamador(conta, conta.papel.value)
+        return _marcar_autor(Chamador(conta, conta.papel.value))
 
     # Transicao, e so para o bootstrap: o token compartilhado vale como admin
     # enquanto nao existe nenhuma conta humana. Depois da primeira, fecha --
@@ -275,7 +287,7 @@ async def obter_chamador(
     if papeis.admin_sem_login(
         settings.exigir_login, await repo.existe_conta_humana(session)
     ):
-        return Chamador(None, Papel.admin.value, sem_login=True)
+        return _marcar_autor(Chamador(None, Papel.admin.value, sem_login=True))
 
     raise HTTPException(
         401, "faca login: o token compartilhado nao identifica ninguem"

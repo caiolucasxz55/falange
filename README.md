@@ -321,6 +321,66 @@ reapareceu na primeira rota nova -- comentario nao impede reordenacao.
 quando um caminho literal e declarado depois de um parametrizado que o
 cobre, dizendo qual mover para onde.
 
+## Evolucao: o que o estado atual nao conta
+
+As outras tabelas guardam o **estado atual**. Uma task diz que esta
+concluida; nao diz quando saiu de aberta, quantas vezes voltou, nem quem a
+moveu. Essa informacao existia e era jogada fora a cada escrita.
+
+A tabela `evento` guarda cada mutacao de task, dependencia, evidencia e
+nota, com `dados` em JSONB. Dai saem `GET /evolucao` e `resumo_periodo` --
+nenhum dos dois da para calcular do estado atual, porque os dois sao sobre
+a passagem do tempo.
+
+### Nao e auditoria, e nao tenta ser
+
+Sem assinatura, sem cadeia de hash, e o registro mora na mesma transacao do
+que ele descreve: quem alcanca o banco altera os dois. Para contar a
+evolucao do time isso basta. Para provar o que alguem fez contra a vontade
+dessa pessoa, nao basta -- e dizer que basta seria pior que nao ter.
+
+### Por que contar o evento, e nao o estado
+
+| Pergunta | Olhando a task | Olhando o evento |
+|---|---|---|
+| task concluida, reaberta e concluida de novo | 1 entrega | 2 entregas, nas semanas certas |
+| tempo de ciclo dela | o intervalo inteiro, incluindo o tempo parada pronta | cada ciclo medido separado |
+| task apagada que foi entregue | some do grafico | continua contada |
+
+O ultimo e por causa da FK: `evento.task_id` e **SET NULL**, nao CASCADE.
+"A task #12 foi apagada" e justamente o evento que precisa sobreviver a
+task #12 -- com CASCADE, ele se apagaria junto e o registro mais importante
+seria o unico a sumir.
+
+### O autor, sem passar por 20 assinaturas
+
+O repositorio escreve o evento na MESMA transacao da mudanca -- e o jeito
+de nao existir mudanca sem registro. Mas ele nao conhece o chamador, e
+levar `autor_id` ate la exigiria o parametro em toda funcao de escrita.
+
+`seguranca/contexto.py` resolve com um ContextVar preenchido por
+`obter_chamador`. **So `autor_id`, e so para registro.** Autorizacao nunca:
+permissao passa por `Chamador.exigir()`, explicito na rota, porque uma
+checagem escondida num contextvar e impossivel de auditar lendo a rota -- e
+e a rota que alguem le para saber o que ela protege.
+
+### A tabela comeca vazia, e o endpoint diz isso
+
+Nao da para reconstruir historia que nao foi guardada, e inventar eventos a
+partir dos timestamps atuais produziria uma linha do tempo que parece real
+e nao e -- pior que comecar do zero.
+
+Com menos de 10 eventos, `/evolucao` devolve `aviso` em vez de desenhar um
+grafico quase vazio. Grafico vazio parece "o time parou"; o aviso diz o que
+de fato houve. O `/falange-resumo` e instruido a dizer isso **antes** de
+qualquer numero, porque confundir "nao ha historico" com "nada aconteceu" e
+a forma mais facil de o comando mentir.
+
+### Semana comeca na segunda
+
+Com semanas comecando em dias diferentes, duas leituras do mesmo periodo
+dao numeros diferentes e ninguem sabe qual esta certo.
+
 ## Evidencia: concluir com prova
 
 Uma task concluida pela IA precisa de prova, nao de afirmacao.
@@ -616,6 +676,8 @@ banco nem por engano.
 | `registrar_evidencia` | sim (liga a prova aos criterios) |
 | `listar_evidencias` | nao |
 | `apagar_evidencia` | sim (criterio volta a "nao verificado") |
+| `ver_evolucao` | nao (throughput, ciclo e marcos) |
+| `resumo_periodo` | nao (o que mudou, travou e esta em risco) |
 | `sugerir_proximas` | nao (ranking explicado) |
 | `ver_calibracao` | nao (estimado x real) |
 | `ver_perfil` | nao (o que o time ensinou) |
@@ -896,6 +958,7 @@ Com a stack no ar, abra o projeto no Claude Code e use:
 | `/falange-status [bloco\|pessoa]` | panorama: blocos, cadeias de bloqueio, sobrecarga (so leitura) |
 | `/falange-verificar <id>` | veredito por criterio, com a prova citada; conclui conforme a autonomia |
 | `/falange-trabalhar [id]` | o ciclo inteiro: escolher, implementar, commitar com `#id`, verificar |
+| `/falange-resumo [dias]` | o que mudou, travou e esta em risco no periodo (so leitura) |
 
 Pedidos em texto livre tambem funcionam: o `CLAUDE.md` manda sempre usar as
 tools do MCP, nunca banco ou codigo.

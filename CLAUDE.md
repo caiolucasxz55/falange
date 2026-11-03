@@ -84,6 +84,9 @@ Comandos prontos:
   Registra evidencia e conclui conforme a autonomia.
 - `/falange-trabalhar [id]`: o ciclo inteiro -- escolher, combinar o plano,
   implementar, commitar com `#id` e verificar.
+- `/falange-resumo [dias]`: o que mudou, travou e esta em risco. So
+  leitura. Se vier `aviso`, diga antes dos numeros: "nao ha historico
+  suficiente" e diferente de "o time nao fez nada".
 
 As tools devolvem `{"erro": "..."}` em vez de falhar: leia a mensagem e
 corrija a chamada. "Backend inacessivel" significa que a stack esta fora:

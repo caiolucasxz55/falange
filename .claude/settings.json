@@ -58,7 +58,11 @@
       "mcp__falange__registrar_evidencia",
       "mcp__falange-teste__registrar_evidencia",
       "mcp__falange__listar_evidencias",
-      "mcp__falange-teste__listar_evidencias"
+      "mcp__falange-teste__listar_evidencias",
+      "mcp__falange__ver_evolucao",
+      "mcp__falange-teste__ver_evolucao",
+      "mcp__falange__resumo_periodo",
+      "mcp__falange-teste__resumo_periodo"
     ],
     "ask": [
       "mcp__falange__apagar_task",

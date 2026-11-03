@@ -36,6 +36,7 @@ from backend.models.enums import (
     TipoAcao,
     TipoDecisao,
 )
+from backend.models.evento import Evento, TipoEvento
 from backend.models.marco import MAX_NOME as MAX_NOME_MARCO
 from backend.models.marco import Marco
 from backend.models.nota import Nota
@@ -54,6 +55,7 @@ __all__ = [
     "Decisao",
     "Dependencia",
     "Estimativa",
+    "Evento",
     "Evidencia",
     "MAX_CRITERIOS",
     "MAX_NOME_MARCO",
@@ -78,6 +80,7 @@ __all__ = [
     "Status",
     "Task",
     "TipoAcao",
+    "TipoEvento",
     "TipoEvidencia",
     "TokenMCP",
     "TipoDecisao",

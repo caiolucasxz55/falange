@@ -49,6 +49,8 @@ TOOLS = (
     tools.registrar_evidencia,
     tools.listar_evidencias,
     tools.apagar_evidencia,
+    tools.ver_evolucao,
+    tools.resumo_periodo,
 )
 
 

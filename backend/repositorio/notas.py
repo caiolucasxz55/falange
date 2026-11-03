@@ -5,7 +5,8 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import Nota
+from backend.models import Nota, TipoEvento
+from backend.repositorio import eventos
 from backend.repositorio import usuarios
 
 
@@ -29,6 +30,15 @@ async def _ligar_autor(session: AsyncSession, dados: dict) -> dict:
 async def criar(session: AsyncSession, dados: dict) -> Nota:
     nota = Nota(**await _ligar_autor(session, dados))
     session.add(nota)
+    # Flush para ter o id da nota no evento, ainda na mesma transacao.
+    await session.flush()
+    await eventos.registrar(
+        session,
+        nota.projeto_id,
+        TipoEvento.nota_criada,
+        task_id=nota.task_id,
+        dados={"nota_id": nota.id},
+    )
     await session.commit()
     await session.refresh(nota)
     return nota
@@ -68,6 +78,13 @@ async def resolver(
     if nota is None:
         return None
     nota.resolvida = True
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.nota_resolvida,
+        task_id=nota.task_id,
+        dados={"nota_id": nota_id},
+    )
     await session.commit()
     await session.refresh(nota)
     return nota
@@ -98,6 +115,13 @@ async def remover(
     nota = await buscar(session, projeto_id, nota_id)
     if nota is None:
         return False
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.nota_apagada,
+        task_id=nota.task_id,
+        dados={"nota_id": nota_id},
+    )
     await session.delete(nota)
     await session.commit()
     return True

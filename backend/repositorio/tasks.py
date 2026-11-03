@@ -14,8 +14,10 @@ from backend.models import (
     Status,
     Task,
     TipoDecisao,
+    TipoEvento,
 )
 from backend.repositorio import criterios as criterios_repo
+from backend.repositorio import eventos
 from backend.repositorio import usuarios
 from backend.repositorio.aprendizado import rebaixar_se_preciso
 
@@ -62,6 +64,20 @@ async def criar(
     # dentro da mesma transacao.
     await session.flush()
     await criterios_repo.criar_para(session, task.id, criterios or [])
+    await eventos.registrar(
+        session,
+        task.projeto_id,
+        TipoEvento.task_criada,
+        task_id=task.id,
+        dados={
+            "titulo": task.titulo,
+            "bloco": _valor(task.bloco),
+            "estimativa": _valor(task.estimativa),
+            "prioridade": _valor(task.prioridade),
+            "origem": _valor(task.origem),
+            "criterios": len(criterios or []),
+        },
+    )
     await session.commit()
     await session.refresh(task)
     return task
@@ -123,6 +139,9 @@ async def definir_status(
     task = await buscar(session, projeto_id, task_id)
     if task is None:
         return None
+    # Lido ANTES de sobrescrever: o evento guarda a transicao, e "de" e o
+    # que o estado atual deixa de contar assim que muda.
+    antes_status = task.status
     task.status = status
     task.atualizada_em = func.now()
 
@@ -142,6 +161,13 @@ async def definir_status(
         # travar quem dependia dela, sem precisar de nenhuma escrita.
         task.concluida_em = None
 
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.task_mudou_status,
+        task_id=task_id,
+        dados={"de": _valor(antes_status), "para": _valor(status)},
+    )
     await session.commit()
     await session.refresh(task)
     return task
@@ -235,6 +261,15 @@ async def editar(
             session.add(Decisao(**registro))
             await rebaixar_se_preciso(session, projeto_id, registro)
 
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.task_editada,
+        task_id=task_id,
+        # So os NOMES dos campos: o conteudo ja esta na task, e copiar
+        # texto para ca duplicaria descricao inteira em cada edicao.
+        dados={"campos": sorted(campos)},
+    )
     await session.commit()
     await session.refresh(task)
     return task
@@ -246,6 +281,16 @@ async def remover(session: AsyncSession, projeto_id: int, task_id: int) -> bool:
     task = await buscar(session, projeto_id, task_id)
     if task is None:
         return False
+    # Registrado ANTES do delete, e com o titulo DENTRO de `dados`: a FK do
+    # evento e SET NULL, entao `task_id` vira nulo quando a linha some. Sem
+    # o titulo aqui, "task apagada" viraria um evento que nao diz qual.
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.task_apagada,
+        task_id=task_id,
+        dados={"titulo": task.titulo, "status": _valor(task.status)},
+    )
     await session.delete(task)
     await session.commit()
     return True

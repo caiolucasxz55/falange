@@ -212,7 +212,7 @@ async def adicionar_dependencia(
             f"fazer {task_id} depender de {alvo} criaria um ciclo de dependencia",
         )
 
-    await repo_deps.adicionar(session, task_id, alvo)
+    await repo_deps.adicionar(session, task_id, alvo, projeto.id)
     return await _montar_uma(session, projeto.id, task)
 
 
@@ -233,7 +233,9 @@ async def remover_dependencia(
     if task is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
 
-    if not await repo_deps.remover(session, task_id, depende_de_id):
+    if not await repo_deps.remover(
+        session, task_id, depende_de_id, projeto.id
+    ):
         raise HTTPException(
             404, f"task {task_id} nao depende de {depende_de_id}"
         )
@@ -317,6 +319,7 @@ async def registrar_evidencia(
         body.resumo,
         chamador.id,
         body.criterio_ids,
+        projeto.id,
     )
     if erro:
         # 409: o pedido e coerente, mas cruza a fronteira de outra task --
@@ -345,7 +348,9 @@ async def apagar_evidencia(
     if await repo.buscar(session, projeto.id, task_id) is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
 
-    if not await repo_evidencias.remover(session, task_id, evidencia_id):
+    if not await repo_evidencias.remover(
+        session, task_id, evidencia_id, projeto.id
+    ):
         raise HTTPException(
             404, f"evidencia {evidencia_id} nao e da task {task_id}"
         )

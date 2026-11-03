@@ -10,7 +10,8 @@ from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models import Criterio, Evidencia, TipoEvidencia
+from backend.models import Criterio, Evidencia, TipoEvento, TipoEvidencia
+from backend.repositorio import eventos
 
 
 async def listar_por_task(
@@ -49,6 +50,7 @@ async def registrar(
     resumo: str,
     autor_id: Optional[int],
     criterio_ids: list[int],
+    projeto_id: int,
 ) -> tuple[Optional[Evidencia], Optional[str]]:
     """Grava a prova e liga os criterios pedidos, no mesmo commit.
 
@@ -92,13 +94,28 @@ async def registrar(
             )
         )
 
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.evidencia_registrada,
+        task_id=task_id,
+        dados={
+            "tipo": getattr(tipo, "value", tipo),
+            "referencia": referencia,
+            "criterios": sorted(pedidos),
+        },
+        autor_id=autor_id,
+    )
     await session.commit()
     await session.refresh(evidencia)
     return evidencia, None
 
 
 async def remover(
-    session: AsyncSession, task_id: int, evidencia_id: int
+    session: AsyncSession,
+    task_id: int,
+    evidencia_id: int,
+    projeto_id: int,
 ) -> bool:
     """False quando a evidencia nao existe ou nao e daquela task.
 
@@ -114,6 +131,13 @@ async def remover(
         update(Criterio)
         .where(Criterio.evidencia_id == evidencia_id)
         .values(evidencia_id=None, cumprido_em=None)
+    )
+    await eventos.registrar(
+        session,
+        projeto_id,
+        TipoEvento.evidencia_apagada,
+        task_id=task_id,
+        dados={"evidencia_id": evidencia_id, "referencia": alvo.referencia},
     )
     await session.delete(alvo)
     await session.commit()

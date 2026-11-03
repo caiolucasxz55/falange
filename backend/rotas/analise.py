@@ -4,7 +4,7 @@ So leem. A conta mora em `dominio/`; aqui a rota so busca no banco, chama a
 funcao pura e devolve.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -12,11 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.db import get_session
+from backend.dominio import evolucao as dom_evolucao
+from backend.dominio import previsao as dom_previsao
 from backend.dominio.calibracao import calibrar
 from backend.dominio.priorizacao import ranquear
 from backend.models import Bloco, Status
 from backend.models import Projeto
 from backend.repositorio import dependencias as repo_deps
+from backend.repositorio import eventos as repo_eventos
 from backend.repositorio import marcos as repo_marcos
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import TaskOut
@@ -101,3 +104,58 @@ async def calibracao(
         session, projeto.id, status=Status.concluida
     )
     return calibrar([TaskOut.model_validate(t).model_dump() for t in concluidas])
+
+@rotas.get("/evolucao")
+async def evolucao(
+    semanas: int = Query(8, ge=1, le=26),
+    chamador: Chamador = Depends(obter_chamador),
+    projeto: Projeto = Depends(obter_projeto),
+    session: AsyncSession = Depends(get_session),
+):
+    """Como o time esta andando: throughput, tempo de ciclo e marcos.
+
+    Sai dos EVENTOS, nao do estado atual -- as duas perguntas aqui sao
+    sobre a passagem do tempo, e o estado atual nao a guarda. Por isso
+    tudo o que aconteceu antes de a tabela de eventos existir nao aparece:
+    `aviso` diz isso quando ha pouco registro, em vez de desenhar um
+    grafico quase vazio que parece "o time parou".
+    """
+    chamador.exigir("ler")
+
+    # A janela da busca cobre a grade inteira, com uma semana de folga
+    # para o ciclo que comecou antes da primeira segunda aparecer.
+    desde = datetime.now(timezone.utc) - timedelta(weeks=semanas + 1)
+    linha_do_tempo = await repo_eventos.listar(session, projeto.id, desde=desde)
+
+    tasks = {
+        t.id: t for t in await repo_tasks.listar(session, projeto.id)
+    }
+    saida = dom_evolucao.montar(linha_do_tempo, tasks, quantas_semanas=semanas)
+
+    # Os marcos entram com a previsao: "o time esta andando" e "a entrega
+    # vai dar" sao a mesma pergunta vista de dois lados.
+    marcos = await repo_marcos.listar(session, projeto.id, incluir_fechados=False)
+    por_marco = await repo_marcos.tasks_por_marco(session, projeto.id)
+    calibracao_atual = calibrar(
+        [
+            TaskOut.model_validate(t).model_dump()
+            for t in tasks.values()
+            if t.status == Status.concluida
+        ]
+    )
+    saida["marcos"] = [
+        {
+            "id": m.id,
+            "nome": m.nome,
+            **dom_previsao.prever(
+                {"nome": m.nome, "data_alvo": m.data_alvo, "fechado_em": m.fechado_em},
+                [
+                    TaskOut.model_validate(t).model_dump()
+                    for t in por_marco.get(m.id, [])
+                ],
+                calibracao_atual,
+            ),
+        }
+        for m in marcos
+    ]
+    return saida

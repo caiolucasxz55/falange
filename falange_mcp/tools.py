@@ -1032,3 +1032,62 @@ def apagar_evidencia(task_id: int, evidencia_id: int) -> dict:
     if isinstance(saida, dict) and saida.get("erro"):
         return saida
     return {"apagada": evidencia_id, "task_id": task_id}
+
+
+# ---------------------------------------------------------------------------
+# evolucao
+# ---------------------------------------------------------------------------
+
+
+def ver_evolucao(semanas: int = 8) -> dict:
+    """Como o time esta andando: throughput, tempo de ciclo e marcos.
+
+    Sai dos EVENTOS, nao do estado atual: "quantas tasks sairam por
+    semana" e "quanto tempo leva do comeco ao fim" sao perguntas sobre a
+    passagem do tempo, e a task guarda so o agora.
+
+    Se vier `aviso`, ha pouco historico -- o registro comeca quando a
+    tabela de eventos passou a existir, e o que aconteceu antes nao
+    aparece. Diga isso em vez de concluir que o time parou.
+    """
+    return _pedir("GET", "/evolucao", params={"semanas": semanas})
+
+
+def resumo_periodo(dias: int = 7) -> dict:
+    """O que mudou, o que travou e o que esta em risco nos ultimos N dias.
+
+    Junta tres coisas que a IA precisaria pedir separadas: os eventos do
+    periodo, os alertas da priorizacao e a previsao dos marcos.
+
+    Use para "como foi a semana", "o que andou", "o que esta em risco".
+    NAO inventa causa: diga o que os numeros mostram e, quando nao houver
+    historico, diga que nao ha -- e diferente de dizer que nada aconteceu.
+    """
+    if dias < 1 or dias > 90:
+        return {"erro": "dias: use de 1 a 90"}
+
+    semanas = max(1, min(26, (dias + 6) // 7))
+    evolucao = _pedir("GET", "/evolucao", params={"semanas": semanas})
+    if isinstance(evolucao, dict) and evolucao.get("erro"):
+        return evolucao
+
+    priorizacao = _pedir("GET", "/priorizacao", params={"limite": 5})
+    if isinstance(priorizacao, dict) and priorizacao.get("erro"):
+        return priorizacao
+
+    marcos = evolucao.get("marcos") or []
+    return {
+        "dias": dias,
+        "throughput": evolucao.get("throughput"),
+        "tempo_de_ciclo": evolucao.get("tempo_de_ciclo"),
+        "o_que_aconteceu": evolucao.get("por_tipo"),
+        "eventos_no_periodo": evolucao.get("eventos_no_periodo"),
+        # Os alertas ja vem explicados pela priorizacao: inversao,
+        # inflacao, trabalho parado e marco em risco.
+        "alertas": priorizacao.get("alertas"),
+        "em_risco": [
+            m for m in marcos if m.get("veredito") in ("em_risco", "atrasado")
+        ],
+        "marcos": marcos,
+        "aviso": evolucao.get("aviso"),
+    }
