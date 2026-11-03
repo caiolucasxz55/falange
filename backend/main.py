@@ -18,6 +18,7 @@ from backend.rotas import (
     aprendizado,
     autonomia,
     configuracao,
+    marcos,
     notas,
     projetos,
     saude,
@@ -44,6 +45,7 @@ app.include_router(usuarios.rotas)
 app.include_router(projetos.rotas)
 app.include_router(rotas_tasks.rotas)
 app.include_router(notas.rotas)
+app.include_router(marcos.rotas)
 app.include_router(analise.rotas)
 app.include_router(configuracao.rotas)
 app.include_router(aprendizado.rotas)

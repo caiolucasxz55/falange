@@ -47,6 +47,13 @@ class Task(Base):
     # pode esperar por VARIAS, e isso nao cabe numa coluna. Ver
     # `models/dependencia.py`.
 
+    # A entrega de que esta task faz parte, se faz de alguma. SET NULL:
+    # apagar um marco nao pode apagar trabalho -- a task perde o
+    # agrupamento e continua.
+    marco_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("marco.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     status: Mapped[Status] = mapped_column(
         Enum(Status, name="status"), default=Status.aberta
     )

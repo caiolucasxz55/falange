@@ -237,6 +237,90 @@ abaixo do marcador vira um criterio por bullet, e texto acima de 200 chars
 e cortado com reticencia. O "de 1 a 5" vale para o que se cria daqui pra
 frente.
 
+## Marcos: a entrega com data
+
+A regra de prioridade sempre disse que `alta` vale quando a task "e
+pre-requisito de uma **entrega proxima**". Mas nada no sistema sabia o que
+era uma entrega, nem quando ela era -- quem decidia era a memoria de quem
+estava olhando. O marco e o dado que faltava para essa regra.
+
+Deliberadamente raso: um nome e uma data. Sem sprint, sem epico, sem
+hierarquia. A task aponta para um marco ou nao aponta.
+
+| Acao | Quem |
+|---|---|
+| criar, editar, fechar, apagar marco | admin e lead (`gerir_marcos`) |
+| por uma task num marco | qualquer um que edite task, inclusive a IA |
+
+A IA **nao cria marco**, e isso e desenho: um marco e um compromisso de
+entrega com data, e compromisso nao e transcricao de pedido. Dizer de qual
+entrega uma task faz parte, isso ela faz -- e transcricao, como `bloco`.
+
+`data_alvo` e `Date`, nao `DateTime`: prazo de entrega e um dia, nao um
+instante. Guardar hora traria fuso para uma conta de calendario, e "vence
+as 23:59 de onde?" nao tem resposta boa num time distribuido.
+
+Apagar um marco **nao apaga as tasks dele**: a FK e `SET NULL`, entao elas
+so perdem o agrupamento. Apagar trabalho nao e o que alguem espera de
+"remover a etiqueta".
+
+### A previsao, com a conta exposta
+
+`GET /marcos/previsao` devolve cada marco com um veredito -- `no_prazo`,
+`em_risco`, `atrasado`, `sem_data` ou `concluido` -- e com a CONTA que o
+sustenta: dias de trabalho restante, dias de calendario, e o detalhe por
+classe de estimativa.
+
+A conta exposta e o ponto. "Em risco" sem numero e palpite, e palpite de
+software sobre prazo nao convence ninguem, com razao. Com a conta a vista,
+quem discorda tem onde apontar.
+
+O numero de cada classe vem da **calibracao do time** quando ha amostra, e
+da faixa nominal quando nao ha -- a mesma calibracao que a IA consulta
+antes de estimar. Se o painel usasse uma media propria, ele contradiria a
+conversa sobre a mesma task, e ninguem saberia qual acreditar.
+
+Sem amostra, usa o MAIOR valor da faixa, nao o meio: errar para o
+pessimista avisa cedo; errar para o otimista avisa quando nao da mais
+tempo de fazer nada.
+
+**O que a previsao nao e:** ela soma a mediana de duracao de cada task
+aberta, o que trata o time como se fizesse uma task por vez e nao tivesse
+feriado nem reuniao. A alternativa seria modelar capacidade, paralelismo e
+calendario -- e um modelo desses erra com mais confianca. A soma simples,
+com a conta a vista, erra de um jeito que a pessoa percebe e corrige. Esta
+dito na docstring de `dominio/previsao.py` para ninguem achar que e mais
+do que e.
+
+O limiar de risco e passar de **80%** do tempo restante. Nao e 100% porque
+chegar raspando nao e "no prazo": e um aviso que chegou tarde demais para
+alguem fazer algo a respeito.
+
+### O peso de prazo na priorizacao
+
+Task de marco que vence em ate **7 dias** ganha o mesmo peso de
+`prioridade_alta` (30). Nao e coincidencia: a regra prometia que alta valia
+para entrega proxima, entao o peso tem de bater com o que ela prometia.
+
+Mais de uma semana nao pesa -- tudo de todo marco viraria urgente, e o peso
+deixaria de distinguir qualquer coisa.
+
+Junto vem o alerta `marco_em_risco`, quando a data esta perto e ainda ha
+task aberta. Ele e mais simples que a previsao de proposito: repetir a soma
+inteira ali faria duas contas de prazo que podem divergir.
+
+### A pegadinha de ordem de rota, agora com guarda
+
+`/marcos/previsao` tem de ser declarada ANTES de `/marcos/{marco_id}`,
+senao o literal cai no parametro e vira 422. E a mesma armadilha de
+`/tasks/contagem-por-bloco`.
+
+Isso ja estava escrito em comentario e no `CLAUDE.md`, e mesmo assim
+reapareceu na primeira rota nova -- comentario nao impede reordenacao.
+`tests/test_ordem_de_rotas.py` varre o fonte de `backend/rotas/` e falha
+quando um caminho literal e declarado depois de um parametrizado que o
+cobre, dizendo qual mover para onde.
+
 ## Evidencia: concluir com prova
 
 Uma task concluida pela IA precisa de prova, nao de afirmacao.

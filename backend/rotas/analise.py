@@ -17,6 +17,7 @@ from backend.dominio.priorizacao import ranquear
 from backend.models import Bloco, Status
 from backend.models import Projeto
 from backend.repositorio import dependencias as repo_deps
+from backend.repositorio import marcos as repo_marcos
 from backend.repositorio import tasks as repo_tasks
 from backend.schemas import TaskOut
 from backend.schemas.texto import NomeOpcional
@@ -63,8 +64,20 @@ async def priorizacao(
         }
 
     arestas = await repo_deps.listar_arestas(session, projeto.id)
+    # Os marcos entram para o peso de prazo e para o alerta
+    # `marco_em_risco`: e o que da dado real a "pre-requisito de uma
+    # entrega proxima", que a regra de prioridade sempre prometeu.
+    marcos = [
+        {
+            "id": m.id,
+            "nome": m.nome,
+            "data_alvo": m.data_alvo,
+            "fechado_em": m.fechado_em,
+        }
+        for m in await repo_marcos.listar(session, projeto.id)
+    ]
     saida = ranquear(
-        tasks, datetime.now(timezone.utc), cargas, responsavel, arestas
+        tasks, datetime.now(timezone.utc), cargas, responsavel, arestas, marcos
     )
 
     if bloco is not None:

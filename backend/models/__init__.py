@@ -36,6 +36,8 @@ from backend.models.enums import (
     TipoAcao,
     TipoDecisao,
 )
+from backend.models.marco import MAX_NOME as MAX_NOME_MARCO
+from backend.models.marco import Marco
 from backend.models.nota import Nota
 from backend.models.projeto import SLUG_PADRAO, Projeto
 from backend.models.task import Task
@@ -54,6 +56,7 @@ __all__ = [
     "Estimativa",
     "Evidencia",
     "MAX_CRITERIOS",
+    "MAX_NOME_MARCO",
     "MAX_REFERENCIA",
     "MAX_RESUMO",
     "MAX_SHA",
@@ -62,6 +65,7 @@ __all__ = [
     "MIN_SHA",
     "MIN_TEXTO_CRITERIO",
     "NivelAutonomia",
+    "Marco",
     "Nota",
     "Origem",
     "Papel",

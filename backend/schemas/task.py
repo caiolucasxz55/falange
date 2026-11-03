@@ -61,6 +61,9 @@ class TaskOut(BaseModel):
     # migration 0010 nao achou a linha "Criterio de aceite:" na descricao.
     criterios: list[CriterioOut] = Field(default_factory=list)
 
+    # A entrega de que esta task faz parte, se faz de alguma.
+    marco_id: Optional[int] = None
+
     # Derivado: algum criterio ficou sem prova (ou nao ha criterio nenhum).
     #
     # So interessa em task concluida, e ai e o preco da regra: o humano
@@ -100,6 +103,12 @@ class TaskNova(BaseModel):
         max_length=MAX_CRITERIOS,
     )
 
+    # Em que entrega esta task entra. Nao tem permissao propria, e e
+    # tratado como `bloco`: dizer de qual entrega a task faz parte e
+    # TRANSCREVER o pedido ("essa e da entrega de novembro"), nao decidir
+    # a entrega. Criar o marco, isso sim e de admin ou lead.
+    marco_id: Optional[int] = None
+
     @field_validator("criterios")
     @classmethod
     def _criterios_apresentaveis(cls, bruta: list[str]) -> list[str]:
@@ -133,7 +142,11 @@ class TaskEdicao(BaseModel):
     # removem o responsavel, com uma representacao so no banco.
     responsavel: NomeOpcional = None
 
-    # `responsavel` fica de fora: null nele significa tirar o responsavel.
+    # Tirar a task do marco e `marco_id: null`, operacao legitima.
+    marco_id: Optional[int] = None
+
+    # `responsavel` e `marco_id` ficam de fora: null neles significa
+    # REMOVER, nao "campo ausente".
     _sem_nulos = model_validator(mode="before")(
         recusar_nulos("titulo", "descricao", "estimativa", "bloco", "prioridade")
     )

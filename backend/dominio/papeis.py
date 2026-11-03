@@ -47,6 +47,7 @@ ACOES = (
     "definir_configuracao",
     "gerir_usuarios",
     "gerir_projetos",
+    "gerir_marcos",
 )
 
 # A matriz. Ler na vertical: o que cada papel alcanca.
@@ -80,6 +81,7 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "ativar_preferencia",
         "promover_autonomia",
         "rebaixar_autonomia",
+        "gerir_marcos",
     ),
     "dev": (
         "ler",

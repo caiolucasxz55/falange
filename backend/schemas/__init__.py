@@ -14,6 +14,13 @@ from backend.schemas.aprendizado import (
 from backend.schemas.configuracao import ConfiguracaoEdicao, ConfiguracaoOut
 from backend.schemas.evidencia import EvidenciaNova, EvidenciaOut
 from backend.schemas.limites import MAX_DESCRICAO, MAX_JSON_DECISAO, json_cabe
+from backend.schemas.marco import (
+    FechamentoMarco,
+    MarcoComPrevisao,
+    MarcoEdicao,
+    MarcoNovo,
+    MarcoOut,
+)
 from backend.schemas.nota import NotaEdicao, NotaNova, NotaOut
 from backend.schemas.projeto import ProjetoAtual, ProjetoNovo, ProjetoOut
 from backend.schemas.usuario import (
@@ -45,6 +52,11 @@ __all__ = [
     "Carga",
     "CriterioOut",
     "EvidenciaNova",
+    "FechamentoMarco",
+    "MarcoComPrevisao",
+    "MarcoEdicao",
+    "MarcoNovo",
+    "MarcoOut",
     "EvidenciaOut",
     "ConfiguracaoEdicao",
     "ConfiguracaoOut",

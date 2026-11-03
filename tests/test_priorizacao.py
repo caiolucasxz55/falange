@@ -206,3 +206,89 @@ def test_concluir_uma_das_duas_nao_basta():
 
     # A 3 continua travada pela 2.
     assert set(sugeridas) == {2}
+
+
+# ---------------------------------------------------------------------------
+# prazo de marco
+# ---------------------------------------------------------------------------
+
+
+def marco(id=1, nome="Entrega de novembro", dias=None, fechado_em=None):
+    """Marco com a data a `dias` de AGORA. `dias=None` = sem data."""
+    data_alvo = None if dias is None else (AGORA.date() + timedelta(days=dias))
+    return {
+        "id": id,
+        "nome": nome,
+        "data_alvo": data_alvo,
+        "fechado_em": fechado_em,
+    }
+
+
+def test_task_de_marco_proximo_sobe_no_ranking():
+    """O peso que faltava para a regra de prioridade ter dado real.
+
+    A regra sempre disse que `alta` vale para "pre-requisito de uma
+    entrega proxima". Antes nao havia como o sistema saber o que era uma
+    entrega; agora ha, e o peso bate com o de `prioridade_alta`.
+    """
+    tasks = [
+        task(1, prioridade="media", marco_id=1),
+        task(2, prioridade="media"),
+    ]
+    saida = ranquear(tasks, AGORA, marcos=[marco(dias=3)])
+    assert [s["id"] for s in saida["sugestoes"]] == [1, 2]
+    assert any("vence em 3 dias" in m for m in saida["sugestoes"][0]["motivos"])
+
+
+def test_marco_distante_nao_pesa():
+    """Alem de uma semana, tudo de todo marco viraria urgente."""
+    tasks = [task(1, prioridade="media", marco_id=1), task(2, prioridade="media")]
+    saida = ranquear(tasks, AGORA, marcos=[marco(dias=30)])
+    scores = {s["id"]: s["score"] for s in saida["sugestoes"]}
+    assert scores[1] == scores[2]
+
+
+def test_marco_fechado_nao_cobra_prazo():
+    saida = ranquear(
+        [task(1, marco_id=1)], AGORA, marcos=[marco(dias=1, fechado_em=AGORA)]
+    )
+    assert not any("vence" in m for m in saida["sugestoes"][0]["motivos"])
+
+
+def test_marco_sem_data_nao_cobra_prazo():
+    saida = ranquear([task(1, marco_id=1)], AGORA, marcos=[marco(dias=None)])
+    assert not any("vence" in m for m in saida["sugestoes"][0]["motivos"])
+
+
+def test_a_frase_muda_com_hoje_e_com_vencido():
+    hoje = ranquear([task(1, marco_id=1)], AGORA, marcos=[marco(dias=0)])
+    assert any("vence hoje" in m for m in hoje["sugestoes"][0]["motivos"])
+
+    vencido = ranquear([task(1, marco_id=1)], AGORA, marcos=[marco(dias=-2)])
+    assert any("venceu ha 2 dias" in m for m in vencido["sugestoes"][0]["motivos"])
+
+
+def test_alerta_de_marco_em_risco():
+    tasks = [task(1, marco_id=1), task(2, marco_id=1), task(3)]
+    saida = ranquear(tasks, AGORA, marcos=[marco(dias=2)])
+    risco = [a for a in saida["alertas"] if a["tipo"] == "marco_em_risco"]
+    assert len(risco) == 1
+    assert risco[0]["tasks_afetadas"] == [1, 2]
+    assert "2 task(s) aberta(s)" in risco[0]["mensagem"]
+
+
+def test_marco_proximo_sem_task_aberta_nao_alerta():
+    """Tudo pronto nao e risco: alertar ali ensinaria a ignorar o alerta."""
+    tasks = [task(1, marco_id=1, status="concluida")]
+    saida = ranquear(tasks, AGORA, marcos=[marco(dias=1)])
+    assert not [a for a in saida["alertas"] if a["tipo"] == "marco_em_risco"]
+
+
+def test_sem_marcos_nada_muda():
+    """Compatibilidade: quem nao passa `marcos` continua funcionando igual."""
+    tasks = [task(1, prioridade="alta"), task(2)]
+    com = ranquear(tasks, AGORA, marcos=[])
+    sem = ranquear(tasks, AGORA)
+    assert [s["score"] for s in com["sugestoes"]] == [
+        s["score"] for s in sem["sugestoes"]
+    ]

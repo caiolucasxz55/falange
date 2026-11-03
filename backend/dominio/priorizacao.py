@@ -28,7 +28,19 @@ PESOS = {
     "idade_teto": 15,
     # Empurrao pequeno para o que sai rapido e tira uma pendencia do caminho.
     "quick_win": 5,
+    # Task de marco com a data chegando. Pesa como `prioridade_alta` de
+    # proposito: a regra de prioridade sempre disse que alta vale para
+    # "pre-requisito de uma entrega proxima" -- agora ha dado para isso, e
+    # o peso tem de bater com o que a regra prometia.
+    "prazo_proximo": 30,
 }
+
+# Dias ate a data do marco para a task dele ganhar o peso de prazo.
+#
+# Uma semana e o horizonte em que "a entrega e proxima" muda o que vale a
+# pena pegar hoje. Mais que isso, tudo de todo marco viraria urgente, e o
+# peso deixaria de distinguir qualquer coisa.
+DIAS_PRAZO_PROXIMO = 7
 
 # Acima disso, "muita coisa e alta" deixa de ser prioridade e vira ruido.
 LIMITE_INFLACAO = 0.4
@@ -80,6 +92,39 @@ def _dependentes_transitivos(
     }
 
 
+def _prazos_dos_marcos(marcos: list[dict], agora: datetime) -> dict[int, dict]:
+    """`{marco_id: {"nome", "dias"}}`, so dos marcos ABERTOS e COM data.
+
+    Marco fechado nao cobra prazo (ja foi entregue) e marco sem data nao
+    tem prazo a cobrar. Deixar os dois de fora aqui evita o `if` repetido
+    em todo lugar que consulta.
+    """
+    hoje = agora.date()
+    prazos: dict[int, dict] = {}
+    for marco in marcos:
+        if marco.get("fechado_em") is not None:
+            continue
+        data_alvo = marco.get("data_alvo")
+        if data_alvo is None:
+            continue
+        if isinstance(data_alvo, datetime):
+            data_alvo = data_alvo.date()
+        prazos[marco["id"]] = {
+            "nome": marco.get("nome") or f"marco {marco['id']}",
+            "dias": (data_alvo - hoje).days,
+        }
+    return prazos
+
+
+def _frase_do_prazo(prazo: dict) -> str:
+    dias = prazo["dias"]
+    if dias < 0:
+        return f"'{prazo['nome']}' venceu ha {abs(dias)} dias"
+    if dias == 0:
+        return f"'{prazo['nome']}' vence hoje"
+    return f"'{prazo['nome']}' vence em {dias} dias"
+
+
 def _alerta_inversao(tasks: list[dict], dependentes: dict[int, list[int]]) -> list[dict]:
     """Task de prioridade menor travando uma alta: a fila esta invertida."""
     por_id = {t["id"]: t for t in tasks}
@@ -114,6 +159,7 @@ def ranquear(
     cargas: Optional[dict[str, dict]] = None,
     responsavel: Optional[str] = None,
     arestas: Optional[list[tuple[int, int]]] = None,
+    marcos: Optional[list[dict]] = None,
 ) -> dict[str, Any]:
     """Ordena o que da para fazer agora e explica cada escolha.
 
@@ -125,6 +171,9 @@ def ranquear(
     """
     cargas = cargas or {}
     tasks = _normalizar(tasks)
+    # `{marco_id: dias_ate_a_data}`, so dos marcos abertos com data. O
+    # resto nao tem prazo para cobrar.
+    prazos = _prazos_dos_marcos(marcos or [], agora)
     arestas = list(arestas or [])
     dependentes = _dependentes_transitivos(tasks, arestas)
 
@@ -166,6 +215,11 @@ def ranquear(
         if task.get("estimativa") == "PP":
             score += PESOS["quick_win"]
             motivos.append("quick win (PP)")
+
+        prazo = prazos.get(task.get("marco_id"))
+        if prazo is not None and prazo["dias"] <= DIAS_PRAZO_PROXIMO:
+            score += PESOS["prazo_proximo"]
+            motivos.append(_frase_do_prazo(prazo))
 
         # Trabalho comecado tem precedencia sobre trabalho novo: troca de
         # contexto custa caro. Entra como chave de ordenacao, nao como score,
@@ -233,6 +287,32 @@ def ranquear(
                     "tasks_afetadas": [task["id"]],
                 }
             )
+
+    # Marco com a data chegando e task aberta: a soma de trabalho restante
+    # mora em `dominio/previsao.py`; aqui o alerta e mais simples de
+    # proposito -- "a data esta perto e ainda ha coisa aberta". Repetir a
+    # previsao inteira aqui faria duas contas de prazo que podem divergir.
+    for marco_id, prazo in sorted(prazos.items()):
+        if prazo["dias"] > DIAS_PRAZO_PROXIMO:
+            continue
+        do_marco = [
+            t["id"]
+            for t in tasks
+            if t.get("marco_id") == marco_id and t.get("status") in _ABERTAS
+        ]
+        if not do_marco:
+            continue
+        alertas.append(
+            {
+                "tipo": "marco_em_risco",
+                "task_id": None,
+                "mensagem": (
+                    f"{_frase_do_prazo(prazo)} e ainda ha {len(do_marco)} "
+                    f"task(s) aberta(s) nele"
+                ),
+                "tasks_afetadas": sorted(do_marco),
+            }
+        )
 
     avisos = []
     if responsavel is not None:
