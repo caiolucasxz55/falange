@@ -363,6 +363,26 @@ Isso nao e confianca no comentario: `tests/test_token_mcp.py` varre o fonte
 de `backend/rotas/` e falha se o conjunto de rotas sem `obter_chamador`
 mudar. Rota nova sem ele seria alcancavel com um token inventado.
 
+### O painel "Conectar sua IA"
+
+Na barra lateral da tela. A pessoa da um nome ao token ("meu notebook"),
+opcionalmente um prazo em dias, e recebe de volta duas coisas: o token e o
+`.mcp.json` **pronto para colar**, com o endereco do SSE e o token dentro.
+O que ela precisa fazer e copiar, nao entender.
+
+O segredo aparece UMA vez, num aviso ambar, e o painel nao o guarda em
+lugar nenhum -- nem em `localStorage`. Guardar para "poder ver depois"
+desfaria o ponto de so mostrar uma vez.
+
+A lista mostra nome, prefixo e `ultimo_uso_em`. Token **nunca usado**
+aparece marcado como tal, de proposito: costuma ser o que a pessoa gerou e
+perdeu, e e o candidato obvio a revogar. Revogar pede confirmacao e diz o
+efeito ("a IA conectada por ele para de responder na proxima chamada").
+
+O endereco do SSE e montado com o host de quem esta OLHANDO a tela
+(`window.location.hostname`), nao com `localhost`: quem abre o Falange de
+outra maquina da rede precisa do endereco que funciona para ela.
+
 ### O que o token NAO faz
 
 - **Nao congela permissao.** O papel continua lido do banco a cada
@@ -825,6 +845,22 @@ Os dois transportes ganham a tool automaticamente.
   editou codigo, rebuilde antes de testar.
 - A imagem e `slim`: nao tem `curl` nem `wget`. O healthcheck usa `python
   -c urllib.request`.
+- **`wslrelay` travado no Windows.** O container fica `healthy` (o
+  healthcheck roda DENTRO dele, em `127.0.0.1`) e nada responde do host:
+  requisicao morre em timeout, sem log no backend. O culpado e um processo
+  `wslrelay` do Docker Desktop segurando o IPv4 loopback da porta enquanto
+  o Docker escuta em `::`. Reiniciar o Docker Desktop NAO resolve; matar o
+  processo resolve, e ele e recriado sozinho:
+
+  ```powershell
+  Get-NetTCPConnection -LocalPort 8010 -State Listen |
+    Where-Object { $_.LocalAddress -eq '127.0.0.1' } |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+  ```
+
+  Sintoma que confunde: `docker compose ps` diz "healthy", entao a suspeita
+  cai no codigo. Se o backend nao tem log NENHUM da sua requisicao, ela nao
+  chegou -- o problema esta antes dele.
 
 ## Fora do escopo
 

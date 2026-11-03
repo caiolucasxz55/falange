@@ -23,6 +23,7 @@ const ROTULO_ACAO: Record<string, string> = {
   definir_estimativa: "definir estimativa",
   marcar_bloqueio: "marcar bloqueio",
   criar_pre_tasks_aprovadas: "criar pre-tasks aprovadas",
+  concluir_com_evidencia: "concluir com evidencia",
 };
 
 type Resultado =

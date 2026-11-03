@@ -14,6 +14,7 @@ import type {
   NovaTask,
   Perfil,
   NovoProjeto,
+  NovoTokenMCP,
   NovoUsuario,
   Preferencia,
   Priorizacao,
@@ -22,6 +23,8 @@ import type {
   SessaoAberta,
   Status,
   Task,
+  TokenMCP,
+  TokenMCPCriado,
   Usuario,
 } from "@/types/task";
 
@@ -256,6 +259,34 @@ export async function trocarSenha(
     method: "PATCH",
     body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// tokens de conexao do MCP (os meus)
+// ---------------------------------------------------------------------------
+
+/** GET /eu/tokens-mcp. Nunca devolve o segredo. */
+export function listarTokensMCP(): Promise<TokenMCP[]> {
+  return pedir<TokenMCP[]>("/eu/tokens-mcp");
+}
+
+/**
+ * POST /eu/tokens-mcp. A resposta traz o segredo UMA vez.
+ *
+ * O projeto vem do `X-Falange-Projeto` que `pedir` ja manda, ou seja: o
+ * token nasce amarrado ao projeto selecionado agora no cabecalho. Dali em
+ * diante e naquele projeto que ele escreve.
+ */
+export function criarTokenMCP(novo: NovoTokenMCP): Promise<TokenMCPCriado> {
+  return pedir<TokenMCPCriado>("/eu/tokens-mcp", {
+    method: "POST",
+    body: JSON.stringify(novo),
+  });
+}
+
+/** DELETE /eu/tokens-mcp/{id}. A IA conectada por ele para no request seguinte. */
+export async function revogarTokenMCP(tokenId: number): Promise<void> {
+  await pedir<null>(`/eu/tokens-mcp/${tokenId}`, { method: "DELETE" });
 }
 
 // ---------------------------------------------------------------------------

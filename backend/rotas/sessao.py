@@ -257,10 +257,17 @@ async def criar_meu_token_mcp(
         ),
     )
 
-    saida = TokenMCPCriado.model_validate(linha, from_attributes=True)
-    # O unico lugar do sistema em que o segredo em claro sai: aqui, uma vez.
-    saida.token = token
-    return saida
+    # Valida a LINHA como `TokenMCPOut` (que e o que ela satisfaz) e so
+    # depois monta o `TokenMCPCriado` com o segredo. Validar a linha direto
+    # como `TokenMCPCriado` estoura: `token` e obrigatorio e nao existe no
+    # banco. E dar default a ele seria pior -- um segredo vazio passaria em
+    # silencio, e a pessoa receberia um token que nao conecta.
+    #
+    # Este e o unico lugar do sistema em que o segredo em claro sai.
+    return TokenMCPCriado(
+        **TokenMCPOut.model_validate(linha, from_attributes=True).model_dump(),
+        token=token,
+    )
 
 
 @rotas.delete("/eu/tokens-mcp/{token_id}", status_code=204)

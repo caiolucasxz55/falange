@@ -241,3 +241,64 @@ def test_toda_rota_resolve_o_chamador_menos_as_tres_conhecidas():
         "so confere o formato. Se a rota realmente dispensa identidade, "
         "acrescente em SEM_CHAMADOR_ESPERADO dizendo por que."
     )
+
+
+# ----------------------------------------------- a resposta da criacao
+
+
+class LinhaFalsa:
+    """Uma linha de `token_mcp` como o banco devolve: SEM o segredo."""
+
+    def __init__(self):
+        from datetime import datetime, timezone
+
+        self.id = 7
+        self.nome = "meu notebook"
+        self.prefixo = "abcd1234"
+        self.projeto_id = 1
+        self.criado_em = datetime(2026, 11, 3, tzinfo=timezone.utc)
+        self.ultimo_uso_em = None
+        self.expira_em = None
+        self.revogado_em = None
+
+
+def test_a_linha_do_banco_nao_valida_como_token_criado():
+    """`TokenMCPCriado` exige `token`, e a linha nao tem. E de proposito.
+
+    Este teste documenta um 500 que aconteceu: a rota validava a linha
+    direto como `TokenMCPCriado` e atribuia o segredo DEPOIS -- tarde, a
+    validacao ja tinha estourado. So a verificacao ponta a ponta pegou:
+    nenhum teste de schema olhava a composicao.
+
+    A correcao nao foi dar default a `token`. Default faria um segredo
+    VAZIO passar em silencio, e a pessoa receberia 201 com um token que
+    nao conecta -- pior que o 500.
+    """
+    from pydantic import ValidationError
+
+    from backend.schemas.token_mcp import TokenMCPCriado
+
+    with pytest.raises(ValidationError):
+        TokenMCPCriado.model_validate(LinhaFalsa(), from_attributes=True)
+
+
+def test_monta_a_resposta_da_linha_mais_o_segredo():
+    """O caminho que a rota usa de verdade."""
+    from backend.schemas.token_mcp import TokenMCPCriado, TokenMCPOut
+
+    token, _prefixo, _hash = gerar()
+    saida = TokenMCPCriado(
+        **TokenMCPOut.model_validate(LinhaFalsa(), from_attributes=True).model_dump(),
+        token=token,
+    )
+    assert saida.token == token
+    assert saida.nome == "meu notebook"
+    assert saida.prefixo == "abcd1234"
+    assert "nao volta a aparecer" in saida.aviso
+
+
+def test_o_schema_de_listagem_nao_tem_campo_de_segredo():
+    """A garantia estrutural: nao ha como vazar por reaproveitar o contrato."""
+    from backend.schemas.token_mcp import TokenMCPOut
+
+    assert "token" not in TokenMCPOut.model_fields

@@ -14,6 +14,36 @@ export type Bloco = (typeof BLOCOS)[number]; // "frontend" | "backend" | "infra"
 export type Status = (typeof STATUS)[number]; // "aberta" | "em_andamento" | "concluida"
 export type Prioridade = (typeof PRIORIDADES)[number]; // "alta" | "media" | "baixa"
 
+/** Token de conexao do MCP, como a lista devolve (TokenMCPOut).
+ *
+ * NUNCA carrega o segredo: ele existe uma vez, na resposta da criacao.
+ */
+export interface TokenMCP {
+  id: number;
+  nome: string;
+  /** O pedaco publico, para reconhecer qual token e qual. */
+  prefixo: string;
+  projeto_id: number;
+  criado_em: string;
+  /** null = nunca usado. E o candidato obvio a revogar. */
+  ultimo_uso_em: string | null;
+  expira_em: string | null;
+  revogado_em: string | null;
+}
+
+/** A resposta da CRIACAO, a unica que traz o segredo (TokenMCPCriado). */
+export interface TokenMCPCriado extends TokenMCP {
+  /** Em claro, e so aqui. Nao volta a aparecer. */
+  token: string;
+  aviso: string;
+}
+
+export interface NovoTokenMCP {
+  nome: string;
+  /** Dias de validade. Omitido, vale ate ser revogado. */
+  dias?: number | null;
+}
+
 /** Um item do checklist de aceite da task (CriterioOut). */
 export interface Criterio {
   id: number;

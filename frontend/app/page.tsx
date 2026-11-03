@@ -8,6 +8,7 @@ import { Filtros } from "@/components/Filtros";
 import { Login } from "@/components/Login";
 import { PainelAprendizado } from "@/components/PainelAprendizado";
 import { PainelAutonomia } from "@/components/PainelAutonomia";
+import { PainelConectarIA } from "@/components/PainelConectarIA";
 import { PainelNotas } from "@/components/PainelNotas";
 import { PainelRecomendadas } from "@/components/PainelRecomendadas";
 import { PainelUsuarios } from "@/components/PainelUsuarios";
@@ -64,6 +65,7 @@ function Conteudo() {
           <PainelNotas onMudou={recarregar} />
           <PainelAprendizado />
           <PainelAutonomia />
+          <PainelConectarIA />
         </aside>
         <div>
           <PainelRecomendadas versao={versao} />
