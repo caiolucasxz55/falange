@@ -5,6 +5,7 @@ import type {
   Credenciais,
   EdicaoUsuario,
   Eu,
+  Evolucao,
   EdicaoNota,
   EdicaoTask,
   FiltrosTask,
@@ -153,6 +154,11 @@ export async function apagarNota(notaId: number): Promise<void> {
 /** GET /priorizacao */
 export function verPriorizacao(limite = 3): Promise<Priorizacao> {
   return pedir<Priorizacao>(`/priorizacao?limite=${limite}`);
+}
+
+/** GET /evolucao. Throughput, tempo de ciclo e marcos com previsao. */
+export function verEvolucao(semanas = 8): Promise<Evolucao> {
+  return pedir<Evolucao>(`/evolucao?semanas=${semanas}`);
 }
 
 /** GET /configuracao */

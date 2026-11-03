@@ -193,7 +193,7 @@ export interface Sugestao {
 }
 
 export interface Alerta {
-  tipo: "inversao" | "inflacao" | "parada";
+  tipo: "inversao" | "inflacao" | "parada" | "marco_em_risco";
   task_id: number | null;
   mensagem: string;
   tasks_afetadas: number[];
@@ -207,6 +207,56 @@ export interface Priorizacao {
 
 export interface Configuracao {
   perguntas_ativas: boolean;
+}
+
+export type VereditoMarco =
+  | "no_prazo"
+  | "em_risco"
+  | "atrasado"
+  | "sem_data"
+  | "concluido";
+
+/** O veredito de prazo de um marco, COM a conta que o sustenta. */
+export interface PrevisaoMarco {
+  id: number;
+  nome: string;
+  data_alvo: string | null;
+  veredito: VereditoMarco;
+  /** Negativo quando a data ja passou. null quando nao ha data. */
+  dias_ate_alvo: number | null;
+  dias_de_trabalho_restante: number;
+  tasks_total: number;
+  tasks_concluidas: number;
+  tasks_abertas: number;
+  /** A frase com a conta: "12 dias de trabalho para 5 de calendario". */
+  motivo: string;
+}
+
+/** `GET /evolucao`. Sai dos eventos, nao do estado atual. */
+export interface Evolucao {
+  throughput: {
+    /** Datas ISO das segundas-feiras, da mais antiga para a mais nova. */
+    semanas: string[];
+    concluidas: number[];
+    por_bloco: Record<string, number[]>;
+  };
+  tempo_de_ciclo: {
+    mediana_dias: number | null;
+    n: number;
+    mais_rapido: number | null;
+    mais_lento: number | null;
+  };
+  por_tipo: Record<string, number>;
+  eventos_no_periodo: number;
+  marcos: PrevisaoMarco[];
+  /**
+   * Presente quando ha pouco historico.
+   *
+   * Mostre ANTES dos numeros: "nao ha historico suficiente" e diferente
+   * de "o time nao fez nada", e um grafico quase vazio diz a segunda
+   * coisa sozinho.
+   */
+  aviso?: string;
 }
 
 export type OrigemPreferencia = "explicita" | "inferida";

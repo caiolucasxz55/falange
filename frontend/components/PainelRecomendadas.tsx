@@ -15,6 +15,9 @@ const ESTILO_ALERTA: Record<Alerta["tipo"], string> = {
   inversao: "border-amber-300 bg-amber-50 text-amber-900",
   inflacao: "border-gray-300 bg-gray-50 text-gray-700",
   parada: "border-amber-300 bg-amber-50 text-amber-900",
+  // Vermelho: e o unico alerta com data real por tras, e o unico cujo
+  // custo de ignorar nao e recuperavel depois.
+  marco_em_risco: "border-red-300 bg-red-50 text-red-800",
 };
 
 type Resultado =

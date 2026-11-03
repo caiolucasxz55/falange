@@ -9,6 +9,7 @@ import { Login } from "@/components/Login";
 import { PainelAprendizado } from "@/components/PainelAprendizado";
 import { PainelAutonomia } from "@/components/PainelAutonomia";
 import { PainelConectarIA } from "@/components/PainelConectarIA";
+import { PainelEvolucao } from "@/components/PainelEvolucao";
 import { PainelNotas } from "@/components/PainelNotas";
 import { PainelRecomendadas } from "@/components/PainelRecomendadas";
 import { PainelUsuarios } from "@/components/PainelUsuarios";
@@ -68,6 +69,7 @@ function Conteudo() {
           <PainelConectarIA />
         </aside>
         <div>
+          <PainelEvolucao />
           <PainelRecomendadas versao={versao} />
           <Filtros filtros={filtros} onMudar={setFiltros} />
           <Board filtros={filtros} versao={versao} onRecarregar={recarregar} />
