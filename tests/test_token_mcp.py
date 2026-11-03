@@ -45,6 +45,34 @@ def test_o_segredo_nao_esta_no_hash():
     assert hash_do_segredo(segredo) == hash_segredo
 
 
+def test_todo_token_gerado_se_parseia_de_volta():
+    """O gerador e o parser tem de concordar SEMPRE, nao quase sempre.
+
+    Este teste existe por causa de um bug de verdade: o prefixo vinha de
+    `secrets.token_urlsafe`, cujo alfabeto inclui `_` -- que e o SEPARADOR
+    do token. Um prefixo com `_` partia o token no lugar errado e produzia
+    uma credencial que nunca se parseava. 12,9% dos tokens nasciam
+    quebrados, em silencio, e so falhavam na hora de conectar.
+
+    500 rodadas, e nao uma: o bug aparecia em 1 de 8, entao um unico
+    `gerar()` passaria na maior parte das vezes -- e foi assim que ele
+    chegou a ser commitado.
+    """
+    for _ in range(500):
+        token, prefixo, _hash = gerar()
+        separado = partes(token)
+        assert separado is not None, f"nao se parseia: {token}"
+        assert separado[0] == prefixo, f"prefixo errado: {token}"
+
+
+def test_o_prefixo_nunca_contem_o_separador():
+    """A causa raiz, cobrada direto."""
+    for _ in range(500):
+        _token, prefixo, _hash = gerar()
+        assert "_" not in prefixo
+        assert prefixo.isalnum()
+
+
 def test_dois_tokens_nunca_saem_iguais():
     tokens = {gerar()[0] for _ in range(50)}
     prefixos = {gerar()[1] for _ in range(50)}

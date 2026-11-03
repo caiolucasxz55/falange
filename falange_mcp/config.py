@@ -48,10 +48,13 @@ class Settings(BaseSettings):
     # no .mcp.json, que e versionado.
     api_token: str = ""
 
-    # Token que o PROPRIO servidor SSE exige de quem se conecta nele. E uma
-    # porta diferente da do backend: quem alcanca o SSE usa as credenciais do
-    # servidor, entao protege-la com o mesmo segredo nao separaria nada.
-    sse_token: str = ""
+    # NAO existe mais um segredo do SSE. A porta do MCP remoto e fechada
+    # pelo TOKEN DE CONEXAO de cada pessoa (`flg_...`), que mora no banco e
+    # e revogavel na tela -- ver `falange_mcp/sse.py`.
+    #
+    # O antigo `SSE_TOKEN` era um segredo unico para todo mundo, e quem
+    # passava por ele agia com as credenciais do SERVIDOR: duas pessoas
+    # conectadas eram a mesma conta para o backend.
 
     @property
     def docs_root(self) -> Path:

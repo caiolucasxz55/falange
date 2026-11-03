@@ -37,13 +37,24 @@ from typing import Optional
 MARCA = "flg"
 SEPARADOR = "_"
 
-# Bytes antes do base64. O prefixo nao e segredo, so precisa ser unico; o
-# segredo carrega a entropia toda.
-BYTES_PREFIXO = 6
+# Alfabeto do PREFIXO: so letras e digitos.
+#
+# Nao e detalhe estetico. O prefixo e delimitado pelo SEPARADOR, e
+# `secrets.token_urlsafe` inclui `_` e `-` no alfabeto dele -- um prefixo
+# com `_` partia o token num lugar errado e produzia uma credencial que
+# NUNCA se parseava. Media: 12,9% dos tokens nasciam quebrados, em
+# silencio, e so falhavam na hora de conectar.
+ALFABETO_PREFIXO = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+# Bytes antes do base64, para o segredo. Ele pode conter `_` sem problema:
+# `partes()` corta com maxsplit=2, entao tudo depois do segundo separador e
+# segredo, inteiro.
 BYTES_SEGREDO = 32
 
-# 6 bytes em base64 urlsafe dao 8 chars. Fixo, porque a coluna tem indice
-# unico e a tela alinha a lista por ele.
+# Tamanho fixo do prefixo: a coluna tem indice unico e a tela alinha a
+# lista por ele. 8 chars em 62 simbolos dao ~47 bits, de sobra para nao
+# colidir -- e colisao daria erro de unicidade na criacao, nunca acesso
+# trocado, porque o segredo ainda tem de conferir.
 TAM_PREFIXO = 8
 
 # Rotulo que a pessoa da ao token ("meu notebook", "o CI").
@@ -58,7 +69,9 @@ def gerar() -> tuple[str, str, str]:
     prefixo e o hash, e mais nada -- se a pessoa perder o token, o caminho
     e revogar e gerar outro, nao recuperar.
     """
-    prefixo = secrets.token_urlsafe(BYTES_PREFIXO)[:TAM_PREFIXO]
+    prefixo = "".join(
+        secrets.choice(ALFABETO_PREFIXO) for _ in range(TAM_PREFIXO)
+    )
     segredo = secrets.token_urlsafe(BYTES_SEGREDO)
     token = f"{MARCA}{SEPARADOR}{prefixo}{SEPARADOR}{segredo}"
     return token, prefixo, hash_do_segredo(segredo)

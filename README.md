@@ -378,6 +378,49 @@ mudar. Rota nova sem ele seria alcancavel com um token inventado.
   compartilhado; um token de conexao apontando para ela seria credencial
   sem dono humano para revogar. A rota recusa com 403.
 
+### Como a tool sabe quem chamou
+
+Esta e a parte que nao e obvia, e o comentario em `falange_mcp/credencial.py`
+existe para ninguem "simplificar" de volta.
+
+A ideia obvia -- um middleware ASGI que le o header e guarda num
+`ContextVar` -- **nao funciona no SSE**. O `POST /messages/` nao executa a
+tool: ele valida, empurra a mensagem para um stream de memoria e responde
+202. Quem executa e a task de longa duracao do `GET /sse`, que e outro
+contexto async, e `ContextVar` nao atravessa task criada por fora. O valor
+guardado no POST chegaria vazio.
+
+O que o SDK carrega e o `Request` do POST, anexado a mensagem
+(`ServerMessageMetadata(request_context=request)`). Entao a credencial e
+lida no unico ponto que ve as duas coisas: o wrapper `_com_credencial` em
+`falange_mcp/server.py`, que recebe o `Context` da chamada e preenche o
+`ContextVar` em volta da funcao.
+
+O wrapper existe para isso nao virar um parametro em 34 assinaturas de
+tool. Ele ganha um `ctx: Context` que a tool nao tem; o SDK detecta pela
+anotacao, injeta, e ESCONDE do schema -- a assinatura que a IA ve continua
+sendo a da funcao original.
+
+Duas coisas precisam ser remontadas a mao no wrapper, por motivos
+diferentes: `__signature__`, porque `functools.wraps` copia `__wrapped__` e
+o `inspect.signature` seguiria por ele; e `__annotations__`, porque a
+deteccao do SDK usa `typing.get_type_hints`, nao a assinatura. Sem a
+segunda, `ctx` vaza para o schema de TODAS as tools e nunca e injetado --
+foi o que aconteceu na primeira versao. `tests/test_credencial.py` prende
+as duas.
+
+### Sem credencial, no SSE, nao se fala com o backend
+
+`credencial.atual()` cai no `API_TOKEN` do servidor **so no stdio**, onde o
+processo e do dev e a conta de servico e quem fala de fato.
+
+No SSE o fallback e proibido por desenho. Ali ele significaria "nao sei
+quem esta chamando, entao vou falar como a conta de servico" -- exatamente
+o furo que esta fase veio fechar. O porteiro ja barra quem chega sem token,
+mas depender so dele deixaria a identidade compartilhada a UM afrouxamento
+de distancia, sem erro nenhum aparecer. Sem credencial no SSE, a chamada
+sai sem `Authorization` e leva 401. Barulhento, e e o que se quer.
+
 ### O projeto vem do token
 
 `obter_projeto` passa a olhar, nesta ordem: o token de conexao, o header
@@ -555,13 +598,18 @@ porque o `mcp-sse` e o que fica exposto ao time.
 
 ## Autenticacao
 
-Duas portas, dois segredos, ambos no `.env` (fora do git):
+Dois segredos no `.env` (fora do git):
 
 | Variavel | Protege | Quem apresenta |
 |---|---|---|
-| `API_TOKEN` | a API do backend | o MCP, e o proxy do frontend |
-| `SSE_TOKEN` | o servidor MCP SSE (a porta do time) | o client MCP de cada pessoa |
+| `API_TOKEN` | a API do backend | o MCP local, e o proxy do frontend |
 | `JWT_SEGREDO` | assina o access token do login | o backend (ninguem apresenta) |
+
+O **servidor MCP remoto (SSE) nao tem segredo em arquivo**. A porta dele e
+fechada pelo token de conexao de cada pessoa (`flg_...`), que mora no banco
+e e revogavel na tela. O antigo `SSE_TOKEN` saiu: era um segredo unico para
+todo o time, e quem passava por ele agia com as credenciais do SERVIDOR --
+duas pessoas conectadas eram a mesma conta para o backend.
 
 `JWT_SEGREDO` precisa de pelo menos 32 caracteres e o backend RECUSA subir
 com menos: HMAC-SHA256 com chave curta e fraca (RFC 7518). Vazio desliga o

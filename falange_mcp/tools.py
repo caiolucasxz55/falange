@@ -13,7 +13,7 @@ from pathlib import Path
 
 import httpx
 
-from falange_mcp import git, transporte
+from falange_mcp import credencial, git, transporte
 from falange_mcp.config import settings
 from falange_mcp.template import (
     BLOCOS,
@@ -91,8 +91,12 @@ def _pedir(metodo: str, caminho: str, **kw):
             **_cabecalho_projeto(),
             **(kw.pop("headers", None) or {}),
         }
-        if settings.api_token:
-            cabecalhos["Authorization"] = f"Bearer {settings.api_token}"
+        # A credencial de QUEM chamou, quando houver; senao o token do
+        # servidor. Ver `falange_mcp/credencial.py`: no SSE, mandar sempre o
+        # token do servidor fazia duas pessoas virarem a mesma conta.
+        token = credencial.atual()
+        if token:
+            cabecalhos["Authorization"] = f"Bearer {token}"
         r = httpx.request(
             metodo, f"{BACKEND}{caminho}", timeout=10, headers=cabecalhos, **kw
         )
@@ -104,6 +108,23 @@ def _pedir(metodo: str, caminho: str, **kw):
     if r.status_code == 403:
         return {"erro": str(r.json().get("detail", "acao nao permitida pelo MCP"))}
     if r.status_code == 401:
+        # A mensagem depende de QUAL credencial foi usada: quem conectou
+        # com token proprio nao tem `API_TOKEN` nenhum para conferir, e
+        # mandar essa pessoa olhar o `.env` do servidor seria uma caca ao
+        # tesouro para um token que ela so precisa gerar de novo.
+        detalhe = ""
+        try:
+            detalhe = str(r.json().get("detail", ""))
+        except Exception:
+            pass
+        if credencial.de_conexao():
+            return {
+                "erro": (
+                    detalhe
+                    or "o backend recusou o seu token de conexao; "
+                    "gere outro na tela, em 'Conectar sua IA'"
+                )
+            }
         return {"erro": "backend recusou o token (FALANGE API_TOKEN confere?)"}
     if r.status_code == 204:
         return {"ok": True}
