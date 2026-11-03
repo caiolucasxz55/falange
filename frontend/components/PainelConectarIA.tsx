@@ -238,7 +238,13 @@ export function PainelConectarIA() {
               <p className="mt-3 text-xs font-medium text-amber-900">
                 Ou cole isto direto no seu <code>.mcp.json</code>:
               </p>
-              <pre className="mt-1 max-h-48 overflow-auto rounded border border-amber-300 bg-white p-2 font-mono text-[11px] leading-relaxed text-gray-800">
+              {/*
+                `whitespace-pre-wrap break-words`, e nao scroll horizontal:
+                o painel mora numa coluna de 20rem, e um token de 56 chars
+                nao cabe. Com scroll, a linha do `Authorization` ficava
+                cortada na borda e a pessoa nao via o que ia copiar.
+              */}
+              <pre className="mt-1 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded border border-amber-300 bg-white p-2 font-mono text-[11px] leading-relaxed text-gray-800">
                 {configuracaoMCP(recemCriado.token)}
               </pre>
               <div className="mt-2 flex flex-wrap items-center gap-2">
