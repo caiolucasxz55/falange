@@ -55,8 +55,12 @@ Criterio sem prova no codigo e **nao verificavel**, nunca "cumprido por
 inferencia". Nao registre evidencia que voce nao conferiu: ela existe para
 um humano auditar depois, nao para liberar o status.
 
-O humano conclui sem evidencia -- ele responde pelo que afirma. A task fica
-marcada como `concluida_sem_evidencia`, e isso aparece no card.
+O humano conclui sem evidencia PELA TELA -- ele responde pelo que afirma. A
+task fica marcada como `concluida_sem_evidencia`, e isso aparece no card.
+
+Isso nao vale para voce nem quando o token de conexao te da o papel de uma
+pessoa: a API olha a fonte da chamada, nao so o papel. Toda chamada vinda
+do MCP precisa de prova.
 
 ## Decidir: sugerir, nao mandar
 

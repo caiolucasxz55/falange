@@ -40,7 +40,36 @@ def criterios_sem_prova(criterios: Iterable[Any]) -> list[int]:
     return faltando
 
 
-def pode_concluir(papel: str, criterios: Iterable[Any]) -> tuple[bool, str]:
+def exige_prova(papel: str, via_mcp: bool = False) -> bool:
+    """Esta conclusao precisa de evidencia?
+
+    Duas formas de uma IA estar concluindo, e as DUAS contam:
+
+    1. o papel e `ia` -- a conta de servico, que entra pelo token
+       compartilhado (stdio local);
+    2. a chamada veio pelo MCP -- uma pessoa ligou a IA dela com um token
+       de conexao, e ali o papel resolvido e o DELA, humano.
+
+    O caso 2 nao existia quando esta regra foi escrita, e abriu um buraco
+    nela: a IA conectada pelo caminho remoto herdava o papel do dono e
+    concluia task sem criterio e sem prova -- justamente o que a fase da
+    evidencia veio impedir. Duas decisoes certas sozinhas que se
+    contradiziam juntas.
+
+    O header `X-Falange-Fonte: mcp` vai em TODA chamada do MCP, entao a
+    informacao sempre esteve na requisicao; faltava olhar para ela.
+
+    Sim, o header e do cliente e da para omitir. Mas isso nao e brecha: um
+    humano que tira o header esta fazendo pela API o que ja pode fazer
+    pela tela -- concluir sob a propria responsabilidade. O header aperta
+    quando esta presente; ele nunca afrouxa nada.
+    """
+    return papel == PAPEL_IA or via_mcp
+
+
+def pode_concluir(
+    papel: str, criterios: Iterable[Any], via_mcp: bool = False
+) -> tuple[bool, str]:
     """`(pode, motivo)`. O motivo e vazio quando pode.
 
     Para a IA, "todos os criterios com evidencia" nao basta: a task precisa
@@ -50,7 +79,7 @@ def pode_concluir(papel: str, criterios: Iterable[Any]) -> tuple[bool, str]:
     """
     criterios = list(criterios)
 
-    if papel != PAPEL_IA:
+    if not exige_prova(papel, via_mcp):
         return True, ""
 
     if not criterios:

@@ -107,3 +107,52 @@ def test_task_sem_criterio_conta_como_sem_evidencia():
 def test_posicoes_sao_1_based_para_casar_com_o_card():
     assert criterios_sem_prova([criterio(None), criterio(1)]) == [1]
     assert criterios_sem_prova([criterio(1), criterio(None)]) == [2]
+
+
+# ------------------------------------- a IA conectada com token de pessoa
+
+
+def test_ia_com_token_de_pessoa_tambem_precisa_de_prova():
+    """O buraco que o token de conexao abriu nesta regra.
+
+    Com token de conexao, a IA de alguem resolve para o papel HUMANO do
+    dono -- `admin`, `dev`, `lead`. Olhando so o papel, ela concluia task
+    sem criterio e sem prova pelo caminho remoto, que e justamente o
+    caminho recomendado. Duas decisoes certas sozinhas que se
+    contradiziam juntas.
+    """
+    for papel in ("admin", "lead", "dev"):
+        pode, motivo = pode_concluir(papel, [], via_mcp=True)
+        assert pode is False, f"{papel} via MCP concluiu task sem criterio"
+        assert "sem criterio de aceite" in motivo
+
+        pode, motivo = pode_concluir(papel, [criterio(None)], via_mcp=True)
+        assert pode is False, f"{papel} via MCP concluiu sem evidencia"
+        assert "registrar_evidencia" in motivo
+
+
+def test_a_mesma_pessoa_pela_TELA_continua_concluindo_sem_prova():
+    """O humano responde pelo que afirma -- isso nao mudou.
+
+    A tela nao manda `X-Falange-Fonte`, entao `via_mcp` e False e o
+    caminho humano segue aberto. Se isto quebrar, a correcao do buraco
+    virou uma trava no dev.
+    """
+    for papel in ("admin", "lead", "dev"):
+        assert pode_concluir(papel, [], via_mcp=False)[0] is True
+        assert pode_concluir(papel, [criterio(None)], via_mcp=False)[0] is True
+
+
+def test_a_conta_de_servico_exige_prova_com_ou_sem_fonte():
+    """O papel `ia` basta sozinho: o stdio nao depende do header."""
+    assert pode_concluir("ia", [criterio(None)], via_mcp=False)[0] is False
+    assert pode_concluir("ia", [criterio(None)], via_mcp=True)[0] is False
+
+
+def test_exige_prova_responde_as_duas_formas_de_ser_ia():
+    from backend.dominio.conclusao import exige_prova
+
+    assert exige_prova("ia") is True            # conta de servico, stdio
+    assert exige_prova("dev", via_mcp=True) is True   # IA com token da pessoa
+    assert exige_prova("dev", via_mcp=False) is False  # a pessoa, pela tela
+    assert exige_prova("admin", via_mcp=False) is False

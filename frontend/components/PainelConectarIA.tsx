@@ -12,19 +12,32 @@ import {
 import type { TokenMCP, TokenMCPCriado } from "@/types/task";
 
 /**
- * Porta do servidor MCP remoto nesta maquina.
+ * Porta e caminho do servidor MCP remoto nesta maquina.
  *
- * Fixa aqui, e nao vinda do backend, porque e o endereco de UM processo que
- * o compose sobe ao lado -- o backend nao sabe nem se ele esta no ar. Em
- * outra instalacao, trocar aqui.
+ * Fixos aqui, e nao vindos do backend, porque sao o endereco de UM processo
+ * que o compose sobe ao lado -- o backend nao sabe nem se ele esta no ar.
+ * Em outra instalacao, trocar aqui.
+ *
+ * `/mcp` e Streamable HTTP, que e o que o compose sobe
+ * (`python -m falange_mcp.http`). O `/sse` do transporte antigo so existe
+ * se alguem subir `falange_mcp.sse` por fora.
+ *
+ * Isto JA ESTEVE ERRADO: o painel seguiu apontando para `/sse` depois de o
+ * compose passar a subir Streamable HTTP, e quem copiava a configuracao
+ * levava 404 -- na porta de entrada inteira do produto.
+ * `tests/test_conexao_mcp.py` compara estes valores com o docker-compose e
+ * com o entrypoint, para o erro nao voltar em silencio.
  */
-const PORTA_SSE = 8765;
+const PORTA_MCP = 8765;
+const CAMINHO_MCP = "/mcp";
 
-function enderecoSSE(): string {
-  if (typeof window === "undefined") return `http://127.0.0.1:${PORTA_SSE}/sse`;
+function enderecoMCP(): string {
+  if (typeof window === "undefined") {
+    return `http://127.0.0.1:${PORTA_MCP}${CAMINHO_MCP}`;
+  }
   // O host de quem esta olhando, nao "localhost": quem abre a tela de outra
   // maquina da rede precisa do endereco que funciona para ELE.
-  return `${window.location.protocol}//${window.location.hostname}:${PORTA_SSE}/sse`;
+  return `${window.location.protocol}//${window.location.hostname}:${PORTA_MCP}${CAMINHO_MCP}`;
 }
 
 /** O `.mcp.json` pronto para colar, com o token dentro. */
@@ -33,8 +46,10 @@ function configuracaoMCP(token: string): string {
     {
       mcpServers: {
         falange: {
-          type: "sse",
-          url: enderecoSSE(),
+          // "http" e Streamable HTTP. "sse" aponta para o transporte
+          // legado, que o compose nao sobe.
+          type: "http",
+          url: enderecoMCP(),
           headers: { Authorization: `Bearer ${token}` },
         },
       },

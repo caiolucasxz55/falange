@@ -406,10 +406,21 @@ responde por nada; na sessao seguinte ela nao lembra de ter dito. Entao a
 afirmacao dela nao vale como fato, e o que vale e o que da para conferir
 depois de ela ter ido embora.
 
-| Papel | Conclui |
+| Quem conclui | Precisa de prova? |
 |---|---|
-| admin, lead, dev | sempre; a task fica marcada `concluida_sem_evidencia` |
-| ia | so com evidencia ligada a TODOS os criterios |
+| admin, lead, dev **pela tela** | nao; a task fica marcada `concluida_sem_evidencia` |
+| a conta de servico `falange-ia` | sim, em TODOS os criterios |
+| a IA de alguem, **por token de conexao** | sim, mesmo com o papel humano do dono |
+
+A terceira linha nao existia quando a regra foi escrita, e foi um buraco
+real: o token de conexao resolve para o papel HUMANO do dono, entao olhar
+so o papel deixava a IA concluir sem prova pelo caminho remoto -- que e o
+caminho recomendado. `dominio/conclusao.exige_prova` passa a olhar tambem
+a FONTE (`X-Falange-Fonte: mcp`), que o MCP manda em toda chamada.
+
+O header e do cliente e da para omitir, e isso nao e brecha: um humano que
+o tira esta fazendo pela API o que ja pode fazer pela tela. O header
+APERTA quando esta presente; nunca afrouxa.
 
 O humano concluir sem prova e de proposito, nao um furo: a pessoa responde
 pelo que afirma, e travar o dev atras de um formulario faria o Falange

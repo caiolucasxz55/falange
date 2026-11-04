@@ -21,6 +21,7 @@ from backend.repositorio import dependencias as repo_deps
 from backend.repositorio import evidencias as repo_evidencias
 from backend.repositorio import tasks as repo
 from backend.rotas.montagem import montar_task, montar_tasks
+from backend.seguranca.token import FONTE_MCP
 from backend.seguranca.dependencias import (
     Chamador,
     obter_chamador,
@@ -249,6 +250,7 @@ async def mudar_status(
     chamador: Chamador = Depends(obter_chamador),
     projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
+    x_falange_fonte: Optional[str] = Header(default=None),
 ):
     chamador.exigir("mudar_status_task")
 
@@ -266,7 +268,14 @@ async def mudar_status(
         # O papel vem do banco a cada request (ver seguranca/dependencias):
         # rebaixar alguem vale no request seguinte, nao no vencimento do
         # token. Aqui isso importa -- e a decisao mais sensivel da API.
-        pode, motivo = conclusao.pode_concluir(chamador.papel, criterios)
+        #
+        # A FONTE entra junto com o papel: com token de conexao, a IA de
+        # alguem resolve para o papel HUMANO do dono, e so o papel
+        # deixaria ela concluir sem prova nenhuma. Ver
+        # `dominio/conclusao.exige_prova`.
+        pode, motivo = conclusao.pode_concluir(
+            chamador.papel, criterios, via_mcp=x_falange_fonte == FONTE_MCP
+        )
         if not pode:
             # 409, nao 403: o papel ALCANCA a acao; o que falta e a prova.
             # 403 mandaria a IA pedir permissao a um humano, quando o
