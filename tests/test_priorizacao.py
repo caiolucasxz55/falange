@@ -292,3 +292,35 @@ def test_sem_marcos_nada_muda():
     assert [s["score"] for s in com["sugestoes"]] == [
         s["score"] for s in sem["sugestoes"]
     ]
+
+
+def test_task_concluida_no_meio_corta_a_cadeia():
+    """O dependente fantasma, e o score inflado que vinha com ele.
+
+    Com C -> B -> A e B CONCLUIDA, C nao espera mais por A: a unica
+    dependencia de C e B, e B ja acabou. Antes, a caminhada percorria o
+    grafo inteiro e so depois filtrava concluidas, entao A aparecia
+    destravando C -- ganhando +10 de score por destravar algo que ja
+    estava livre, e C aparecia como candidata livre na MESMA resposta.
+    """
+    tasks = [task(1), task(2, status="concluida"), task(3)]
+    arestas = [(2, 1), (3, 2)]
+
+    saida = ranquear(tasks, AGORA, arestas=arestas)
+    por_id = {s["id"]: s for s in saida["sugestoes"]}
+
+    assert por_id[1]["destrava"] == []
+    assert por_id[1]["score"] == por_id[3]["score"], (
+        "a #1 nao pode valer mais que a #3: ela nao destrava nada"
+    )
+
+
+def test_cadeia_viva_continua_contando():
+    """O contrario do teste acima: com B ABERTA, a cadeia inteira vale.
+
+    Sem isto, a correcao do fantasma poderia ter matado o transitivo.
+    """
+    tasks = [task(1), task(2), task(3)]
+    saida = ranquear(tasks, AGORA, arestas=[(2, 1), (3, 2)])
+    assert saida["sugestoes"][0]["id"] == 1
+    assert saida["sugestoes"][0]["destrava"] == [2, 3]

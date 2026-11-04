@@ -84,9 +84,14 @@ def _dependentes_transitivos(
     """
     concluidas = {t["id"] for t in tasks if t.get("status") == "concluida"}
     return {
+        # `sem_passar_por` e barreira, nao filtro: a concluida nao entra no
+        # resultado E nao e atravessada. Filtrar depois da caminhada
+        # devolvia dependente fantasma -- com C -> B -> A e B concluida,
+        # A aparecia destravando C, que ja estava livre.
         task["id"]: sorted(
-            d for d in grafo.alcancaveis(arestas, task["id"], reverso=True)
-            if d not in concluidas
+            grafo.alcancaveis(
+                arestas, task["id"], reverso=True, sem_passar_por=concluidas
+            )
         )
         for task in tasks
     }

@@ -179,3 +179,41 @@ def test_grafo_vazio_nao_estoura(task_id):
     assert travando([], task_id) == []
     assert not bloqueada([], task_id, concluidas=set())
     assert destrava([], task_id, concluidas=set()) == []
+
+
+# ---------------------------------------------------------------------------
+# a barreira: quem ja acabou nao propaga bloqueio
+# ---------------------------------------------------------------------------
+
+
+def test_barreira_nao_entra_no_resultado_nem_e_atravessada():
+    """As duas metades importam, e a segunda era a que faltava.
+
+    C -> B -> A com B na barreira: A nao alcanca C, porque o unico caminho
+    ate la passa por B.
+    """
+    arestas = [(2, 1), (3, 2)]  # 2 depende de 1; 3 depende de 2
+    assert alcancaveis(arestas, 1, reverso=True) == {2, 3}
+    assert alcancaveis(arestas, 1, reverso=True, sem_passar_por={2}) == set()
+
+
+def test_barreira_so_corta_o_caminho_que_passa_por_ela():
+    """Outro caminho ate o mesmo no continua valendo.
+
+    D depende de A direto E de B; B depende de A. Com B na barreira, A
+    ainda alcanca D pela aresta direta.
+    """
+    arestas = [(2, 1), (4, 2), (4, 1)]
+    assert alcancaveis(arestas, 1, reverso=True, sem_passar_por={2}) == {4}
+
+
+def test_barreira_vazia_nao_muda_nada():
+    arestas = [(2, 1), (3, 2)]
+    assert alcancaveis(arestas, 1, reverso=True, sem_passar_por=set()) == {2, 3}
+    assert alcancaveis(arestas, 1, reverso=True, sem_passar_por=None) == {2, 3}
+
+
+def test_barreira_vale_no_sentido_das_dependencias_tambem():
+    arestas = [(2, 1), (3, 2)]
+    assert alcancaveis(arestas, 3) == {1, 2}
+    assert alcancaveis(arestas, 3, sem_passar_por={2}) == set()

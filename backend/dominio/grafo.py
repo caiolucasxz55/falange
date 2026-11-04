@@ -43,7 +43,10 @@ def travando(arestas: Iterable[tuple[int, int]], task_id: int) -> list[int]:
 
 
 def alcancaveis(
-    arestas: Iterable[tuple[int, int]], inicio: int, reverso: bool = False
+    arestas: Iterable[tuple[int, int]],
+    inicio: int,
+    reverso: bool = False,
+    sem_passar_por: Optional[set[int]] = None,
 ) -> set[int]:
     """Todas as tasks alcancaveis a partir de `inicio`, sem repeticao.
 
@@ -51,18 +54,30 @@ def alcancaveis(
     forma transitiva). `reverso=True` anda ao contrario: tudo que `inicio`
     trava, direta ou indiretamente.
 
+    `sem_passar_por` e uma BARREIRA: quem esta no conjunto nao entra no
+    resultado **e nao e atravessado**. As duas metades importam, e a
+    segunda e a que faltava.
+
+    O caso real: com C -> B -> A e B concluida, C nao espera mais por A.
+    A dependencia de C e B, e B ja acabou. Percorrer o grafo inteiro e so
+    DEPOIS tirar as concluidas devolvia `A destrava [C]` -- um dependente
+    fantasma, que ainda dava +10 de score a A no ranking e aparecia como
+    candidata livre na mesma resposta.
+
     O conjunto de visitados nao e so otimizacao: sem ele, um ciclo ja
     gravado (ou um diamante) faria a busca nao terminar.
     """
+    barreira = sem_passar_por or set()
     mapa = _entrada(arestas) if reverso else _saida(arestas)
     vistos: set[int] = set()
     pilha = [inicio]
     while pilha:
         atual = pilha.pop()
         for vizinho in mapa.get(atual, ()):
-            if vizinho not in vistos:
-                vistos.add(vizinho)
-                pilha.append(vizinho)
+            if vizinho in vistos or vizinho in barreira:
+                continue
+            vistos.add(vizinho)
+            pilha.append(vizinho)
     return vistos
 
 
