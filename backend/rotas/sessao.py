@@ -7,7 +7,7 @@ a lista de quem tem conta.
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
@@ -36,6 +36,7 @@ from backend.seguranca.dependencias import (
     Chamador,
     obter_chamador,
     obter_projeto,
+    veio_de_token_mcp,
 )
 
 rotas = APIRouter(tags=["sessao"])
@@ -222,6 +223,7 @@ async def listar_meus_tokens_mcp(
 )
 async def criar_meu_token_mcp(
     body: TokenMCPNovo,
+    request: Request,
     chamador: Chamador = Depends(obter_chamador),
     projeto: Projeto = Depends(obter_projeto),
     session: AsyncSession = Depends(get_session),
@@ -242,6 +244,17 @@ async def criar_meu_token_mcp(
     if chamador.e_ia:
         raise HTTPException(
             403, "a conta de servico falange-ia nao cria token de conexao"
+        )
+    # Token de conexao NAO gera outro token. Sem isto, um token vazado se
+    # multiplicava: quem o pegasse emitia credenciais novas, e revogar o
+    # vazado nao fechava mais nada. Criar credencial e um ato da PESSOA,
+    # como trocar a senha -- e `PATCH /eu/senha` ja exige a senha atual
+    # pela mesma razao.
+    if veio_de_token_mcp(request):
+        raise HTTPException(
+            403,
+            "token de conexao nao cria outro token: entre com a sua conta "
+            "na tela para gerar um",
         )
 
     token, prefixo, hash_segredo = mod_token_mcp.gerar()

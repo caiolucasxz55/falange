@@ -39,6 +39,7 @@ ACOES = (
     "apagar_nota",
     "apagar_nota_propria",
     "registrar_evidencia",
+    "apagar_evidencia",
     "registrar_decisao",
     "criar_preferencia",
     "ativar_preferencia",
@@ -76,6 +77,7 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "apagar_nota",
         "apagar_nota_propria",
         "registrar_evidencia",
+        "apagar_evidencia",
         "registrar_decisao",
         "criar_preferencia",
         "ativar_preferencia",
@@ -95,6 +97,10 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "resolver_nota",
         "apagar_nota_propria",
         "registrar_evidencia",
+        # O dev apaga prova ERRADA (sha trocado, teste que nao cobre o
+        # criterio). Antes isto exigia `apagar_task`, que ele nao tem --
+        # entao quem registrava a prova errada nao conseguia desfazer.
+        "apagar_evidencia",
         "registrar_decisao",
         "criar_preferencia",
         "rebaixar_autonomia",
@@ -127,6 +133,10 @@ _MATRIZ: dict[str, tuple[str, ...]] = {
         "apagar_nota_propria",
         # Registrar prova ela pode, e deve: e o que torna o trabalho dela
         # conferivel. Quem julga se a prova presta e quem le.
+        #
+        # `apagar_evidencia` fica de FORA, e e o par deste: a IA registra a
+        # propria prova, e poder apaga-la daria a ela como desfazer o
+        # rastro do que fez.
         "registrar_evidencia",
         "registrar_decisao",
         "criar_preferencia",

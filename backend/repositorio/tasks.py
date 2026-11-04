@@ -161,13 +161,19 @@ async def definir_status(
         # travar quem dependia dela, sem precisar de nenhuma escrita.
         task.concluida_em = None
 
-    await eventos.registrar(
-        session,
-        projeto_id,
-        TipoEvento.task_mudou_status,
-        task_id=task_id,
-        dados={"de": _valor(antes_status), "para": _valor(status)},
-    )
+    # So quando MUDA de verdade. Reenviar o mesmo status (formulario
+    # salvo duas vezes, retentativa de rede) gravava um evento de
+    # "transicao" sem transicao -- e `throughput` conta todo evento com
+    # `para == concluida`, entao concluir duas vezes virava DUAS entregas
+    # no grafico.
+    if antes_status != status:
+        await eventos.registrar(
+            session,
+            projeto_id,
+            TipoEvento.task_mudou_status,
+            task_id=task_id,
+            dados={"de": _valor(antes_status), "para": _valor(status)},
+        )
     await session.commit()
     await session.refresh(task)
     return task

@@ -32,6 +32,11 @@ from backend.seguranca.dependencias import (
 
 rotas = APIRouter(tags=["analise"])
 
+# Semanas lidas ALEM da grade, para o inicio de um ciclo longo caber na
+# janela. Oito cobre o ciclo de dois meses; acima disso a leitura cresce
+# sem o grafico mudar, e o que ficar de fora e contado e reportado.
+FOLGA_CICLO = 8
+
 
 @rotas.get("/priorizacao")
 async def priorizacao(
@@ -122,9 +127,14 @@ async def evolucao(
     """
     chamador.exigir("ler")
 
-    # A janela da busca cobre a grade inteira, com uma semana de folga
-    # para o ciclo que comecou antes da primeira segunda aparecer.
-    desde = datetime.now(timezone.utc) - timedelta(weeks=semanas + 1)
+    # A janela da busca cobre a grade inteira MAIS uma folga generosa.
+    #
+    # Uma semana de folga nao bastava: o ciclo precisa das duas pontas na
+    # janela, entao todo ciclo mais longo que a folga era descartado --
+    # justamente os longos, enviesando a mediana para baixo. O que sobrar
+    # de fora sai contado em `tempo_de_ciclo.sem_inicio_na_janela`, para
+    # o numero nao mentir por omissao.
+    desde = datetime.now(timezone.utc) - timedelta(weeks=semanas + FOLGA_CICLO)
     linha_do_tempo = await repo_eventos.listar(session, projeto.id, desde=desde)
 
     tasks = {

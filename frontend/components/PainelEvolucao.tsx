@@ -188,6 +188,20 @@ export function PainelEvolucao() {
         </span>
       </div>
 
+      {/*
+        Os ciclos que nao couberam na janela. Fica fora do parenteses do
+        `n` de proposito: nao e "amostra pequena", e amostra ENVIESADA --
+        so o ciclo longo cai de fora, entao a mediana esta puxada para
+        baixo, e quem le precisa saber a direcao do erro.
+      */}
+      {ciclo.sem_inicio_na_janela > 0 && (
+        <p className="mt-1 text-xs text-amber-800">
+          {ciclo.sem_inicio_na_janela} conclusao(oes) comecaram antes da
+          janela e ficaram de fora do ciclo; a mediana esta puxada para
+          baixo.
+        </p>
+      )}
+
       <div className="mt-2">
         <Barras semanas={throughput.semanas} valores={throughput.concluidas} />
       </div>

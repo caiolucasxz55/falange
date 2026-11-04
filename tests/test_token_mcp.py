@@ -9,6 +9,7 @@ chamador.
 
 import pathlib
 import re
+from types import SimpleNamespace
 
 import pytest
 
@@ -302,3 +303,58 @@ def test_o_schema_de_listagem_nao_tem_campo_de_segredo():
     from backend.schemas.token_mcp import TokenMCPOut
 
     assert "token" not in TokenMCPOut.model_fields
+
+
+# ------------------------------- token de conexao nao gera outro token
+
+
+class RequisicaoFalsa:
+    """O minimo que `veio_de_token_mcp` le: `request.state`."""
+
+    def __init__(self, resolvido=None):
+        self.state = SimpleNamespace()
+        if resolvido is not None:
+            self.state.token_mcp_resolvido = resolvido
+
+
+def test_reconhece_quem_entrou_com_token_de_conexao():
+    """A trava contra o token que se multiplica.
+
+    Sem ela, um token vazado emitia credenciais novas: quem o pegasse
+    gerava outras, e revogar o vazado nao fechava mais nada. Criar
+    credencial e ato da PESSOA -- `PATCH /eu/senha` ja exige a senha atual
+    pela mesma razao.
+    """
+    from backend.seguranca.dependencias import veio_de_token_mcp
+
+    assert veio_de_token_mcp(RequisicaoFalsa(resolvido=object())) is True
+
+
+def test_quem_entrou_por_login_nao_e_confundido():
+    from backend.seguranca.dependencias import veio_de_token_mcp
+
+    # JWT: o resolvedor rodou e nao achou token de conexao.
+    assert veio_de_token_mcp(RequisicaoFalsa(resolvido=None)) is False
+    # Nem passou pelo resolvedor (rota sem token no header).
+    assert veio_de_token_mcp(RequisicaoFalsa()) is False
+
+
+def test_a_rota_de_criar_token_consulta_essa_trava():
+    """Guarda de fiacao: a funcao existir nao basta, ela tem de ser usada.
+
+    A varredura e textual porque a alternativa seria subir o app com
+    banco. O que importa e nao commitar a trava desligada.
+    """
+    import pathlib
+
+    fonte = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "backend" / "rotas" / "sessao.py"
+    ).read_text(encoding="utf-8")
+
+    corpo = fonte[fonte.index("async def criar_meu_token_mcp"):]
+    corpo = corpo[: corpo.index("@rotas.delete")]
+    assert "veio_de_token_mcp(request)" in corpo, (
+        "POST /eu/tokens-mcp parou de barrar o token de conexao: um token "
+        "vazado volta a gerar outros"
+    )

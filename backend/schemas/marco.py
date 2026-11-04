@@ -54,6 +54,22 @@ class MarcoEdicao(BaseModel):
     nome: Optional[str] = Field(default=None, min_length=MIN_NOME, max_length=MAX_NOME)
     data_alvo: Optional[date] = None
 
+    @field_validator("nome")
+    @classmethod
+    def _aparar(cls, bruto: Optional[str]) -> Optional[str]:
+        """Apara antes de medir, como `MarcoNovo`.
+
+        Sem isto, `PATCH` com "  a  " gravava um nome de 1 char com
+        espacos -- que `POST` recusaria. Duas portas para o mesmo campo
+        com regras diferentes e como o dado invalido entra.
+        """
+        if bruto is None:
+            return None
+        limpo = bruto.strip()
+        if len(limpo) < MIN_NOME:
+            raise ValueError(f"nome do marco: pelo menos {MIN_NOME} chars")
+        return limpo
+
     # `data_alvo` fica de fora: null nele significa TIRAR o prazo, que e
     # uma operacao legitima -- mesma convencao de `responsavel` na task.
     _sem_nulos = model_validator(mode="before")(recusar_nulos("nome"))

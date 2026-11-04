@@ -245,6 +245,13 @@ export interface Evolucao {
     n: number;
     mais_rapido: number | null;
     mais_lento: number | null;
+    /**
+     * Conclusoes cujo inicio ficou fora da janela lida.
+     *
+     * Sao ciclos descartados, e so os LONGOS sao descartados -- entao a
+     * mediana fica enviesada para baixo. Mostre quando for > 0.
+     */
+    sem_inicio_na_janela: number;
   };
   por_tipo: Record<string, number>;
   eventos_no_periodo: number;

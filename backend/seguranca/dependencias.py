@@ -206,6 +206,16 @@ async def _projeto_do_token(request: Request, session: AsyncSession):
     return projeto
 
 
+def veio_de_token_mcp(request: Request) -> bool:
+    """Esta requisicao se autenticou com um token de conexao?
+
+    Le o que `_resolver_token_mcp` memoizou. Serve para as rotas que
+    exigem uma PESSOA de fato logada, nao uma credencial de maquina que
+    ela gerou.
+    """
+    return getattr(request.state, "token_mcp_resolvido", None) is not None
+
+
 async def obter_projeto(
     request: Request,
     session: AsyncSession = Depends(get_session),

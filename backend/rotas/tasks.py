@@ -19,6 +19,7 @@ from backend.models import Projeto
 from backend.repositorio import criterios as repo_criterios
 from backend.repositorio import dependencias as repo_deps
 from backend.repositorio import evidencias as repo_evidencias
+from backend.repositorio import marcos as repo_marcos
 from backend.repositorio import tasks as repo
 from backend.rotas.montagem import montar_task, montar_tasks
 from backend.seguranca.token import FONTE_MCP
@@ -40,6 +41,23 @@ from backend.schemas import (
 )
 
 rotas = APIRouter(tags=["tasks"])
+
+async def _conferir_marco(
+    session: AsyncSession, projeto_id: int, marco_id
+) -> None:
+    """O marco existe e e DESTE projeto? Levanta se nao for.
+
+    Sem isto, `marco_id` inexistente virava ForeignKeyViolation sem
+    handler -- 500 em vez de 404 -- e id de outro projeto entrava calado,
+    bem ao contrario da fronteira que as dependencias ja cobravam com 409.
+    """
+    if marco_id is None:
+        return
+    if await repo_marcos.buscar(session, projeto_id, marco_id) is None:
+        # 404 e nao 409: o marco de outro projeto nao existe para quem
+        # pergunta de fora. Mesma semantica de `buscar` da task.
+        raise HTTPException(404, f"marco {marco_id} nao encontrado")
+
 
 
 async def _montar_uma(
@@ -78,6 +96,7 @@ async def criar_task(
     # Agora da para dizer QUEM, e nao so se foi IA ou humano.
     dados["autor_id"] = chamador.id
     dados["projeto_id"] = projeto.id
+    await _conferir_marco(session, projeto.id, dados.get("marco_id"))
     # `criterios` nao e coluna da task: sai do dict antes de virar Task(**).
     criterios = dados.pop("criterios", [])
     task = await repo.criar(session, dados, criterios)
@@ -349,11 +368,15 @@ async def apagar_evidencia(
 ):
     """Tira a prova. Os criterios dela voltam a "nao verificado".
 
-    Destrutiva, entao exige a permissao ampla -- nao ha
-    `apagar_evidencia_propria`: a IA registra a propria prova, e deixar que
-    ela tambem a apagasse daria a ela como desfazer o rastro do que fez.
+    Acao propria, e nao `apagar_task`: quem registra prova errada (sha
+    trocado, teste que nao cobre o criterio) precisa conseguir desfazer, e
+    `apagar_task` e de admin e lead -- o dev ficava preso ao proprio erro.
+
+    A IA NAO tem esta acao, e e o ponto: ela registra a propria prova, e
+    poder apaga-la daria a ela como desfazer o rastro do que fez. Nao ha
+    `apagar_evidencia_propria` pela mesma razao.
     """
-    chamador.exigir("apagar_task")
+    chamador.exigir("apagar_evidencia")
     if await repo.buscar(session, projeto.id, task_id) is None:
         raise HTTPException(404, f"task {task_id} nao encontrada")
 
@@ -392,6 +415,11 @@ async def editar_task(
     atuais = {"prioridade": atual.prioridade, "responsavel": atual.responsavel}
     for acao in sorted(acoes_para_campos(campos, chamador.nome, atuais)):
         chamador.exigir(acao)
+
+    # `marco_id` null e legitimo: tira a task do marco. So vale conferir
+    # quando vem um id.
+    if "marco_id" in campos:
+        await _conferir_marco(session, projeto.id, campos["marco_id"])
 
     task = await repo.editar(
         session, projeto.id, task_id, campos, fonte=x_falange_fonte

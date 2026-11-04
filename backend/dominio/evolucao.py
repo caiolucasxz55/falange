@@ -150,12 +150,55 @@ def ciclos(eventos: Iterable[Any]) -> dict[int, list[float]]:
     return dict(fechados)
 
 
+def conclusoes_sem_inicio(eventos: Iterable[Any]) -> int:
+    """Conclusoes cujo `em_andamento` nao esta na janela lida.
+
+    Um ciclo precisa das DUAS pontas. Quando a janela comeca depois do
+    inicio -- ciclo longo, ou task comecada antes de a tabela de eventos
+    existir -- a conclusao aparece sozinha e o ciclo e descartado.
+
+    Descartar e o certo (nao da para medir o que nao se viu comecar), mas
+    descartar em SILENCIO nao e: some justamente o ciclo LONGO, e a
+    mediana fica enviesada para baixo sem nada indicando. Por isso este
+    numero sai junto da mediana.
+    """
+    ordenados = sorted(
+        (e for e in eventos if _texto(_campo(e, "tipo")) == "task_mudou_status"),
+        key=lambda e: (_campo(e, "criado_em"), _campo(e, "id") or 0),
+    )
+    comecadas: set[int] = set()
+    orfas = 0
+    for evento in ordenados:
+        task_id = _campo(evento, "task_id")
+        if task_id is None:
+            continue
+        para = (_campo(evento, "dados") or {}).get("para")
+        if para == "em_andamento":
+            comecadas.add(task_id)
+        elif para == "concluida":
+            if task_id in comecadas:
+                comecadas.discard(task_id)
+            else:
+                orfas += 1
+    return orfas
+
+
 def tempo_de_ciclo(eventos: Iterable[Any]) -> dict:
     """Mediana dos ciclos fechados, e quantos sustentam o numero."""
+    eventos = list(eventos)
     todos = [d for lista in ciclos(eventos).values() for d in lista]
+    orfas = conclusoes_sem_inicio(eventos)
+    base = {"sem_inicio_na_janela": orfas}
     if not todos:
-        return {"mediana_dias": None, "n": 0, "mais_rapido": None, "mais_lento": None}
+        return {
+            **base,
+            "mediana_dias": None,
+            "n": 0,
+            "mais_rapido": None,
+            "mais_lento": None,
+        }
     return {
+        **base,
         "mediana_dias": round(median(todos), 2),
         "n": len(todos),
         "mais_rapido": min(todos),

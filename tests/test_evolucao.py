@@ -220,3 +220,55 @@ def test_aceita_objeto_do_orm_e_nao_so_dict():
         dados={"para": "concluida"},
     )
     assert throughput([linha], ate=AGORA, quantas_semanas=1)["concluidas"] == [1]
+
+
+# ------------------------------------- o que a janela deixa de fora
+
+
+def test_conclusao_sem_inicio_na_janela_e_contada():
+    """O ciclo longo some, e o numero tem de dizer que sumiu.
+
+    A janela precisa das DUAS pontas. Quando o `em_andamento` ficou para
+    tras, o ciclo e descartado -- e so o longo e descartado, entao a
+    mediana fica enviesada para baixo. Descartar e certo; descartar em
+    silencio nao.
+    """
+    saida = tempo_de_ciclo([status(1, "concluida")])
+    assert saida["n"] == 0
+    assert saida["sem_inicio_na_janela"] == 1
+
+
+def test_ciclo_completo_nao_conta_como_sem_inicio():
+    eventos = [
+        status(1, "em_andamento", AGORA - timedelta(days=2)),
+        status(1, "concluida", AGORA),
+    ]
+    saida = tempo_de_ciclo(eventos)
+    assert saida["n"] == 1
+    assert saida["sem_inicio_na_janela"] == 0
+
+
+def test_os_dois_casos_convivem_na_mesma_resposta():
+    """Um ciclo medido e um perdido: a mediana sai E o aviso sai."""
+    eventos = [
+        status(1, "em_andamento", AGORA - timedelta(days=4)),
+        status(1, "concluida", AGORA),
+        status(2, "concluida", AGORA),  # comecou antes da janela
+    ]
+    saida = tempo_de_ciclo(eventos)
+    assert saida["mediana_dias"] == 4.0
+    assert saida["n"] == 1
+    assert saida["sem_inicio_na_janela"] == 1
+
+
+def test_reconclusao_nao_conta_como_sem_inicio():
+    """Concluir, reabrir e concluir de novo tem inicio para os dois ciclos."""
+    eventos = [
+        status(1, "em_andamento", AGORA - timedelta(days=9)),
+        status(1, "concluida", AGORA - timedelta(days=8)),
+        status(1, "em_andamento", AGORA - timedelta(days=3), de="concluida"),
+        status(1, "concluida", AGORA),
+    ]
+    saida = tempo_de_ciclo(eventos)
+    assert saida["n"] == 2
+    assert saida["sem_inicio_na_janela"] == 0
