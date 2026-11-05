@@ -10,6 +10,8 @@ Backend esperado em `http://localhost:8010` (a stack do `docker-compose` na
 raiz). Para trocar, copie `.env.example` para `.env.local` e ajuste
 `NEXT_PUBLIC_API_URL` - ela e embutida no build, entao reinicie o `dev`.
 
+sim
+
 ## Estrutura
 
 | Arquivo | Responsabilidade |
