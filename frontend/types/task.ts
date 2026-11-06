@@ -352,6 +352,8 @@ export type Acao =
   | "resolver_nota"
   | "apagar_nota"
   | "apagar_nota_propria"
+  | "registrar_evidencia"
+  | "apagar_evidencia"
   | "registrar_decisao"
   | "criar_preferencia"
   | "ativar_preferencia"
@@ -359,7 +361,8 @@ export type Acao =
   | "rebaixar_autonomia"
   | "definir_configuracao"
   | "gerir_usuarios"
-  | "gerir_projetos";
+  | "gerir_projetos"
+  | "gerir_marcos";
 
 export interface Usuario {
   id: number;
