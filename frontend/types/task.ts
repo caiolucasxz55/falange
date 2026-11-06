@@ -209,6 +209,21 @@ export interface Configuracao {
   perguntas_ativas: boolean;
 }
 
+/** Um marco: a entrega com data (MarcoOut). */
+export interface Marco {
+  id: number;
+  nome: string;
+  /** Data ISO (so o dia), ou null quando nao ha prazo. */
+  data_alvo: string | null;
+  fechado_em: string | null;
+  criado_em: string;
+}
+
+export interface NovoMarco {
+  nome: string;
+  data_alvo?: string | null;
+}
+
 export type VereditoMarco =
   | "no_prazo"
   | "em_risco"

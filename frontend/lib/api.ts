@@ -12,8 +12,10 @@ import type {
   Nota,
   NovaNota,
   NivelAutonomia,
+  Marco,
   NovaTask,
   Perfil,
+  NovoMarco,
   NovoProjeto,
   NovoTokenMCP,
   NovoUsuario,
@@ -265,6 +267,36 @@ export async function trocarSenha(
     method: "PATCH",
     body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// marcos
+// ---------------------------------------------------------------------------
+
+/** GET /marcos */
+export function listarMarcos(incluirFechados = true): Promise<Marco[]> {
+  return pedir<Marco[]>(`/marcos?incluir_fechados=${incluirFechados}`);
+}
+
+/** POST /marcos. So admin e lead (`gerir_marcos`). */
+export function criarMarco(novo: NovoMarco): Promise<Marco> {
+  return pedir<Marco>("/marcos", {
+    method: "POST",
+    body: JSON.stringify(novo),
+  });
+}
+
+/** PATCH /marcos/{id}/fechamento. Reabrir nao perde nada: so limpa a data. */
+export function fecharMarco(marcoId: number, fechado: boolean): Promise<Marco> {
+  return pedir<Marco>(`/marcos/${marcoId}/fechamento`, {
+    method: "PATCH",
+    body: JSON.stringify({ fechado }),
+  });
+}
+
+/** DELETE /marcos/{id}. As tasks dele NAO sao apagadas: so perdem o grupo. */
+export async function apagarMarco(marcoId: number): Promise<void> {
+  await pedir<null>(`/marcos/${marcoId}`, { method: "DELETE" });
 }
 
 // ---------------------------------------------------------------------------

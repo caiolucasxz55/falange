@@ -10,6 +10,7 @@ import { PainelAprendizado } from "@/components/PainelAprendizado";
 import { PainelAutonomia } from "@/components/PainelAutonomia";
 import { PainelConectarIA } from "@/components/PainelConectarIA";
 import { PainelEvolucao } from "@/components/PainelEvolucao";
+import { PainelMarcos } from "@/components/PainelMarcos";
 import { PainelNotas } from "@/components/PainelNotas";
 import { PainelRecomendadas } from "@/components/PainelRecomendadas";
 import { PainelUsuarios } from "@/components/PainelUsuarios";
@@ -64,6 +65,7 @@ function Conteudo() {
           <PainelUsuarios />
           {escreve && <TaskForm onCriada={recarregar} />}
           <PainelNotas onMudou={recarregar} />
+          <PainelMarcos />
           <PainelAprendizado />
           <PainelAutonomia />
           <PainelConectarIA />
